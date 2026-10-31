@@ -548,7 +548,6 @@ abstract final class PageUtils {
     int? rootRpId,
     int? secondRpId,
   }) {
-    final vertical = dimension?.isVertical ?? isVertical;
     final arguments = {
       'aid': aid ?? IdUtils.bv2av(bvid!),
       'bvid': bvid ?? IdUtils.av2bv(aid!),
@@ -560,17 +559,12 @@ abstract final class PageUtils {
       'title': ?title,
       'progress': ?progress,
       'videoType': videoType,
-      'isVertical': vertical,
+      'isVertical': dimension?.isVertical ?? isVertical,
       'heroTag': Utils.makeHeroTag(cid),
       rootRpIdKey: ?rootRpId,
       secondRpIdKey: ?secondRpId,
       ...?extraArguments,
     };
-    if (vertical &&
-        Pref.verticalFeed &&
-        extraArguments?['noVerticalFeed'] != true) {
-      return PageUtils.toDupNamed('/verticalFeed', arguments: arguments);
-    }
     return PageUtils.toDupNamed('/videoV', arguments: arguments, off: off);
   }
 

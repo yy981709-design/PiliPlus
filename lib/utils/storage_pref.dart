@@ -312,6 +312,9 @@ abstract final class Pref {
   static bool get showWatchStatsCard =>
       _setting.get(SettingBoxKey.showWatchStatsCard, defaultValue: true);
 
+  static int get watchLevelStyle =>
+      _setting.get(SettingBoxKey.watchLevelStyle, defaultValue: 0);
+
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
 
@@ -655,9 +658,6 @@ abstract final class Pref {
 
   static bool get forcePortrait =>
       _setting.get(SettingBoxKey.forcePortrait, defaultValue: false);
-
-  static bool get verticalFeed =>
-      _setting.get(SettingBoxKey.verticalFeed, defaultValue: true);
 
   static String get banWordForDyn =>
       _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');

@@ -65,7 +65,6 @@ import 'package:PiliPlus/pages/sponsor_block/view.dart';
 import 'package:PiliPlus/pages/subscription/view.dart';
 import 'package:PiliPlus/pages/subscription_detail/view.dart';
 import 'package:PiliPlus/pages/video/view.dart';
-import 'package:PiliPlus/pages/vertical_feed/view.dart';
 import 'package:PiliPlus/pages/watch_stats/view.dart';
 import 'package:PiliPlus/pages/webview/view.dart';
 import 'package:PiliPlus/pages/whisper/view.dart';
@@ -180,6 +179,5 @@ class Routes {
     GetPage(name: '/memberGuard', page: () => const MemberGuard()),
     GetPage(name: '/bubble', page: () => const BubblePage()),
     GetPage(name: '/watchStats', page: () => const WatchStatsPage()),
-    GetPage(name: '/verticalFeed', page: () => const VerticalFeedPage()),
   ];
 }

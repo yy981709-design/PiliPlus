@@ -83,12 +83,6 @@ class _RcmdPageState extends State<RcmdPage>
                 colorScheme,
                 () => Get.toNamed('/download'),
               ),
-              _quickAction(
-                Icons.smart_display_outlined,
-                '竖屏',
-                colorScheme,
-                () => Get.toNamed('/verticalFeed'),
-              ),
             ],
           ),
         ],

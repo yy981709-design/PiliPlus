@@ -6,6 +6,7 @@ import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -197,6 +198,45 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
     );
   }
 
+  static const _levelIcons = [
+    [
+      Icons.cloud_outlined,
+      Icons.egg_outlined,
+      Icons.local_cafe_outlined,
+      Icons.local_fire_department,
+      Icons.bolt,
+      Icons.workspace_premium,
+      Icons.emoji_events,
+    ],
+    [
+      Icons.nights_stay_outlined,
+      Icons.auto_awesome,
+      Icons.diamond_outlined,
+      Icons.whatshot,
+      Icons.rocket_launch,
+      Icons.military_tech,
+      Icons.workspace_premium,
+    ],
+  ];
+
+  int get _levelStyle {
+    try {
+      final value = GStorage.setting.get(SettingBoxKey.watchLevelStyle, defaultValue: 0);
+      return value == 1 ? 1 : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  void _toggleLevelStyle() {
+    final next = _levelStyle == 0 ? 1 : 0;
+    try {
+      GStorage.setting.put(SettingBoxKey.watchLevelStyle, next);
+    } catch (_) {}
+    SmartDialog.showToast(next == 0 ? '等级样式：经典' : '等级样式：霓虹');
+    setState(() {});
+  }
+
   Widget _levelCard(ThemeData theme, _LevelInfo level) {
     final color = theme.colorScheme;
     final next = level.nextHours;
@@ -224,15 +264,38 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: color.primaryContainer,
+                    gradient: _levelStyle == 1
+                        ? LinearGradient(
+                            colors: [
+                              color.primaryContainer,
+                              color.tertiaryContainer,
+                            ],
+                          )
+                        : null,
+                    color: _levelStyle == 0 ? color.primaryContainer : null,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    level.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: color.onPrimaryContainer,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _levelIcons[_levelStyle][level.index],
+                        size: 16,
+                        color: _levelStyle == 0
+                            ? color.onPrimaryContainer
+                            : color.onTertiaryContainer,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        level.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _levelStyle == 0
+                              ? color.onPrimaryContainer
+                              : color.onTertiaryContainer,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Spacer(),
@@ -258,6 +321,21 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
                 Text(
                   next == null ? '满级' : 'LV${level.index}/${_levelNames.length - 1}',
                   style: TextStyle(fontSize: 12, color: color.outline),
+                ),
+                IconButton(
+                  tooltip: '切换等级样式',
+                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(28, 28),
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: _toggleLevelStyle,
+                  icon: Icon(
+                    Icons.palette_outlined,
+                    size: 18,
+                    color: color.outline,
+                  ),
                 ),
               ],
             ),
