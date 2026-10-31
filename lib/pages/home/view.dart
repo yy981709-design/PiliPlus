@@ -26,12 +26,33 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends CommonPageState<HomePage>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
   late ColorScheme _colorScheme;
   final _homeController = Get.putOrFind(HomeController.new);
   final _mainController = Get.find<MainController>();
-  bool _hideContinueWatching = false;
   double _downScroll = 0;
+  late final AnimationController _cwController;
+  late final Animation<double> _cwAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _cwController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+      value: 1,
+    );
+    _cwAnimation = CurvedAnimation(
+      parent: _cwController,
+      curve: Curves.easeInOutCubicEmphasized,
+    );
+  }
+
+  @override
+  void dispose() {
+    _cwController.dispose();
+    super.dispose();
+  }
 
   @override
   bool get needsCorrection => _homeController.hideTopBar;
@@ -66,9 +87,7 @@ class _HomePageState extends CommonPageState<HomePage>
             onTap: (_) {
               feedBack();
               _downScroll = 0;
-              if (_hideContinueWatching) {
-                setState(() => _hideContinueWatching = false);
-              }
+              _cwController.value = 1;
               if (!_homeController.tabController.indexIsChanging) {
                 _homeController.animateToTop();
               }
@@ -101,25 +120,25 @@ class _HomePageState extends CommonPageState<HomePage>
             if (index >= tabs.length || tabs[index] != HomeTabType.rcmd) {
               return const SizedBox.shrink();
             }
-            return AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: _hideContinueWatching
-                  ? const SizedBox.shrink()
-                  : Obx(() {
-                      if (!_homeController.showContinueWatching.value) {
-                        return const SizedBox.shrink();
-                      }
-                      final items = _homeController.continueWatching;
-                      if (items.isEmpty) return const SizedBox.shrink();
-                      return ContinueWatchingBar(
-                        items: items,
-                        onMore: () {
-                          Get.toNamed('/history');
-                        },
-                      );
-                    }),
+            return SizeTransition(
+              sizeFactor: _cwAnimation,
+              axisAlignment: -1,
+              child: FadeTransition(
+                opacity: _cwAnimation,
+                child: Obx(() {
+                  if (!_homeController.showContinueWatching.value) {
+                    return const SizedBox.shrink();
+                  }
+                  final items = _homeController.continueWatching;
+                  if (items.isEmpty) return const SizedBox.shrink();
+                  return ContinueWatchingBar(
+                    items: items,
+                    onMore: () {
+                      Get.toNamed('/history');
+                    },
+                  );
+                }),
+              ),
             );
           },
         ),
@@ -142,26 +161,23 @@ class _HomePageState extends CommonPageState<HomePage>
     if (notification.metrics.axis != Axis.vertical) return false;
     if (!Pref.continueWatchingAutoHide) {
       _downScroll = 0;
-      if (_hideContinueWatching) {
-        setState(() => _hideContinueWatching = false);
+      if (_cwController.value != 1) {
+        _cwController.animateTo(
+          1,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
       }
       return false;
     }
-    if (notification is ScrollStartNotification) {
-      _downScroll = 0;
-    } else if (notification is ScrollUpdateNotification) {
+    if (notification is ScrollUpdateNotification) {
       final delta = notification.scrollDelta ?? 0;
-      if (delta > 0) {
-        _downScroll += delta;
-        if (!_hideContinueWatching &&
-            _downScroll >= Pref.continueWatchingHideThreshold) {
-          setState(() => _hideContinueWatching = true);
-        }
-      } else if (delta < 0) {
-        _downScroll = 0;
-        if (_hideContinueWatching) {
-          setState(() => _hideContinueWatching = false);
-        }
+      if (delta == 0) return false;
+      final threshold = Pref.continueWatchingHideThreshold.toDouble();
+      _downScroll = (_downScroll + delta).clamp(0.0, threshold);
+      final target = 1 - (_downScroll / threshold).clamp(0.0, 1.0);
+      if ((_cwController.value - target).abs() > 0.001) {
+        _cwController.value = target;
       }
     }
     return false;
