@@ -189,6 +189,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       cover: videoDetailController.cover.value,
       author: videoDetailController.watchAuthor,
       position: position,
+      total: videoDetailController.watchTotal,
       playing: videoDetailController.plPlayerController.playerStatus.isPlaying,
     );
   }

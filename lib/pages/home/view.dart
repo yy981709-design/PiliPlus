@@ -29,6 +29,7 @@ class _HomePageState extends CommonPageState<HomePage>
   late ColorScheme _colorScheme;
   final _homeController = Get.putOrFind(HomeController.new);
   final _mainController = Get.find<MainController>();
+  bool _hideContinueWatching = false;
 
   @override
   bool get needsCorrection => _homeController.hideTopBar;
@@ -62,6 +63,9 @@ class _HomePageState extends CommonPageState<HomePage>
             tabAlignment: TabAlignment.center,
             onTap: (_) {
               feedBack();
+              if (_hideContinueWatching) {
+                setState(() => _hideContinueWatching = false);
+              }
               if (!_homeController.tabController.indexIsChanging) {
                 _homeController.animateToTop();
               }
@@ -94,28 +98,51 @@ class _HomePageState extends CommonPageState<HomePage>
             if (index >= tabs.length || tabs[index] != HomeTabType.rcmd) {
               return const SizedBox.shrink();
             }
-            return Obx(() {
-              final items = _homeController.continueWatching;
-              if (items.isEmpty) return const SizedBox.shrink();
-              return ContinueWatchingBar(
-                items: items,
-                onMore: () {
-                  Get.toNamed('/history');
-                },
-              );
-            });
+            return AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _hideContinueWatching
+                  ? const SizedBox.shrink()
+                  : Obx(() {
+                      final items = _homeController.continueWatching;
+                      if (items.isEmpty) return const SizedBox.shrink();
+                      return ContinueWatchingBar(
+                        items: items,
+                        onMore: () {
+                          Get.toNamed('/history');
+                        },
+                      );
+                    }),
+            );
           },
         ),
         Expanded(
-          child: onBuild(
-            tabBarView(
-              controller: _homeController.tabController,
-              children: _homeController.tabs.map((e) => e.page).toList(),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: onBuild(
+              tabBarView(
+                controller: _homeController.tabController,
+                children: _homeController.tabs.map((e) => e.page).toList(),
+              ),
             ),
           ),
         ),
       ],
     );
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta > 6 && !_hideContinueWatching) {
+        setState(() => _hideContinueWatching = true);
+      } else if (delta < -6 && _hideContinueWatching) {
+        setState(() => _hideContinueWatching = false);
+      }
+    }
+    return false;
   }
 
   Widget customAppBar() {

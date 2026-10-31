@@ -20,6 +20,7 @@ class WatchStatsService {
   String _author = '';
   int _lastPosMs = 0;
   int _pendingMs = 0;
+  bool _completed = false;
 
   /// 播放器位置回调，每秒调用一次。
   void onPosition({
@@ -28,6 +29,7 @@ class WatchStatsService {
     String? cover,
     String? author,
     required Duration position,
+    Duration? total,
     required bool playing,
   }) {
     if (id.isEmpty) return;
@@ -39,6 +41,7 @@ class WatchStatsService {
       _author = author ?? '';
       _lastPosMs = position.inMilliseconds;
       _pendingMs = 0;
+      _completed = false;
     } else {
       if (title.isNotEmpty) _title = title;
       if (cover != null && cover.isNotEmpty) _cover = cover;
@@ -47,6 +50,11 @@ class WatchStatsService {
     final delta = position.inMilliseconds - _lastPosMs;
     if (playing && delta > 0 && delta <= 3000) {
       _pendingMs += delta;
+    }
+    if (total != null &&
+        total.inMilliseconds > 0 &&
+        position.inMilliseconds >= total.inMilliseconds - 5000) {
+      _completed = true;
     }
     _lastPosMs = position.inMilliseconds;
     if (_pendingMs >= 30000) flush();
@@ -71,6 +79,8 @@ class WatchStatsService {
       final now = DateTime.now();
       final dayKey = '$_dayPrefix${_dayKey(now)}';
       box.put(dayKey, (box.get(dayKey) as int? ?? 0) + seconds);
+      final hourKey = 'hour:${now.hour}';
+      box.put(hourKey, (box.get(hourKey) as int? ?? 0) + seconds);
 
       final videos = Map<String, dynamic>.from(
         (box.get(_videosKey) as Map?) ?? const {},
@@ -82,6 +92,7 @@ class WatchStatsService {
       old['cover'] = _cover;
       old['author'] = _author;
       old['seconds'] = (old['seconds'] as int? ?? 0) + seconds;
+      old['completed'] = _completed || (old['completed'] as bool? ?? false);
       old['lastAt'] = now.millisecondsSinceEpoch;
       videos[_id!] = old;
 
@@ -159,6 +170,7 @@ class WatchStatsService {
           author: value['author'] as String? ?? '',
           seconds: value['seconds'] as int? ?? 0,
           lastAt: value['lastAt'] as int? ?? 0,
+          completed: value['completed'] as bool? ?? false,
         );
       }).where((e) => e.seconds > 0).toList()
         ..sort((a, b) => b.seconds.compareTo(a.seconds));
@@ -182,6 +194,149 @@ class WatchStatsService {
     return list.take(limit).toList();
   }
 
+  int get startedVideos => topVideos(limit: _maxVideos).length;
+
+  int get completedVideos =>
+      topVideos(limit: _maxVideos).where((e) => e.completed).length;
+
+  int get distinctAuthors => topVideos(limit: _maxVideos)
+      .map((e) => e.author)
+      .where((e) => e.isNotEmpty)
+      .toSet()
+      .length;
+
+  int get activeDays {
+    try {
+      final box = GStorage.watchStats;
+      var count = 0;
+      for (final key in box.keys) {
+        if (key is String &&
+            key.startsWith(_dayPrefix) &&
+            (box.get(key) as int? ?? 0) > 0) {
+          count++;
+        }
+      }
+      return count;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int get maxDaySeconds {
+    var max = 0;
+    for (final day in recentDays(365)) {
+      if (day.seconds > max) max = day.seconds;
+    }
+    return max;
+  }
+
+  int get lateNightSeconds {
+    var total = 0;
+    for (var h = 0; h < 5; h++) {
+      total += _hourSeconds(h);
+    }
+    return total;
+  }
+
+  int get earlySeconds {
+    var total = 0;
+    for (var h = 5; h < 8; h++) {
+      total += _hourSeconds(h);
+    }
+    return total;
+  }
+
+  int get weekendSeconds {
+    var total = 0;
+    for (final day in recentDays(365)) {
+      if (day.date.weekday == DateTime.saturday ||
+          day.date.weekday == DateTime.sunday) {
+        total += day.seconds;
+      }
+    }
+    return total;
+  }
+
+  int get monthSeconds {
+    final now = DateTime.now();
+    var total = 0;
+    for (var d = 1; d <= now.day; d++) {
+      total += daySeconds(DateTime(now.year, now.month, d));
+    }
+    return total;
+  }
+
+  int get yearSeconds {
+    final now = DateTime.now();
+    var total = 0;
+    for (var m = 1; m <= now.month; m++) {
+      final lastDay = m == now.month
+          ? now.day
+          : DateTime(now.year, m + 1, 0).day;
+      for (var d = 1; d <= lastDay; d++) {
+        total += daySeconds(DateTime(now.year, m, d));
+      }
+    }
+    return total;
+  }
+
+  int get currentStreak {
+    final now = DateTime.now();
+    var day = DateTime(now.year, now.month, now.day);
+    if (daySeconds(day) == 0) {
+      day = day.subtract(const Duration(days: 1));
+    }
+    var count = 0;
+    while (daySeconds(day) > 0) {
+      count++;
+      day = day.subtract(const Duration(days: 1));
+    }
+    return count;
+  }
+
+  int get maxStreak {
+    final dates = <DateTime>[];
+    try {
+      final box = GStorage.watchStats;
+      for (final key in box.keys) {
+        if (key is String &&
+            key.startsWith(_dayPrefix) &&
+            (box.get(key) as int? ?? 0) > 0) {
+          final parsed = DateTime.tryParse(key.substring(_dayPrefix.length));
+          if (parsed != null) {
+            dates.add(DateTime(parsed.year, parsed.month, parsed.day));
+          }
+        }
+      }
+    } catch (_) {
+      return 0;
+    }
+    dates.sort();
+    var best = 0;
+    var run = 0;
+    DateTime? prev;
+    for (final date in dates) {
+      if (prev != null && date.difference(prev).inDays == 1) {
+        run++;
+      } else {
+        run = 1;
+      }
+      if (run > best) best = run;
+      prev = date;
+    }
+    return best;
+  }
+
+  int hourSeconds(int hour) => _hourSeconds(hour);
+
+  int _hourSeconds(int hour) {
+    try {
+      return GStorage.watchStats.get('hour:$hour') as int? ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   void clear() {
     _id = null;
     _pendingMs = 0;
@@ -203,6 +358,7 @@ class WatchVideoStat {
   final String author;
   final int seconds;
   final int lastAt;
+  final bool completed;
 
   const WatchVideoStat({
     required this.id,
@@ -211,5 +367,6 @@ class WatchVideoStat {
     required this.author,
     required this.seconds,
     required this.lastAt,
+    this.completed = false,
   });
 }

@@ -152,6 +152,15 @@ class VideoDetailController extends GetxController
     return (args['title'] as String?) ?? '';
   }
 
+  /// 观看统计用：当前视频总时长。
+  Duration? get watchTotal {
+    try {
+      final ms = data.timeLength;
+      if (ms != null && ms > 0) return Duration(milliseconds: ms);
+    } catch (_) {}
+    return null;
+  }
+
   /// 观看统计用：当前视频 UP 名（番剧/影视可能为空）。
   String? get watchAuthor {
     try {
