@@ -105,6 +105,9 @@ class _HomePageState extends CommonPageState<HomePage>
               child: _hideContinueWatching
                   ? const SizedBox.shrink()
                   : Obx(() {
+                      if (!_homeController.showContinueWatching.value) {
+                        return const SizedBox.shrink();
+                      }
                       final items = _homeController.continueWatching;
                       if (items.isEmpty) return const SizedBox.shrink();
                       return ContinueWatchingBar(
@@ -134,11 +137,19 @@ class _HomePageState extends CommonPageState<HomePage>
 
   bool _onScroll(ScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) return false;
-    if (notification is ScrollUpdateNotification) {
-      final delta = notification.scrollDelta ?? 0;
-      if (delta > 6 && !_hideContinueWatching) {
+    if (notification is UserScrollNotification) {
+      if (notification.direction == ScrollDirection.reverse &&
+          !_hideContinueWatching) {
         setState(() => _hideContinueWatching = true);
-      } else if (delta < -6 && _hideContinueWatching) {
+      } else if (notification.direction == ScrollDirection.forward &&
+          _hideContinueWatching) {
+        setState(() => _hideContinueWatching = false);
+      }
+    } else if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta > 0 && !_hideContinueWatching) {
+        setState(() => _hideContinueWatching = true);
+      } else if (delta < 0 && _hideContinueWatching) {
         setState(() => _hideContinueWatching = false);
       }
     }

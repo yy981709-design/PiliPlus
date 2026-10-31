@@ -4,6 +4,7 @@ import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 
 class WatchStatsPage extends StatefulWidget {
@@ -81,6 +82,8 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
             _emptyCard(theme)
           else ...[
             _levelCard(theme, level),
+            _backfillCard(theme),
+            _personaCard(theme),
             _goalCard(theme),
             _heatmapCard(theme),
             _weekCard(theme, days, maxSeconds),
@@ -199,6 +202,25 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
                   ),
                 ),
                 const Spacer(),
+                if (_biliLevel != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'B站账号 LV${_biliLevel!}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: color.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
                 Text(
                   next == null ? '满级' : 'LV${level.index}/${_levelNames.length - 1}',
                   style: TextStyle(fontSize: 12, color: color.outline),
@@ -219,6 +241,203 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
                   : '累计 ${_format(_service.totalSeconds)}，距 LV${level.index + 1} 还差 ${_format(left)}',
               style: TextStyle(fontSize: 12, color: color.outline),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int? get _biliLevel {
+    try {
+      return Pref.userInfoCache?.levelInfo?.currentLevel;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _backfillCard(ThemeData theme) {
+    final base = _service.baseSeconds;
+    final color = theme.colorScheme;
+    return Card(
+      margin: const EdgeInsets.all(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          children: [
+            Icon(Icons.history_edu, color: color.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '历史补录',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    base > 0
+                        ? '已补录 ${_format(base)}，计入总时长和等级'
+                        : '把注册以来的观看时长补进来',
+                    style: TextStyle(fontSize: 12, color: color.outline),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: _editBase,
+              child: Text(base > 0 ? '修改' : '补录'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editBase() async {
+    final controller = TextEditingController(
+      text: (_service.baseSeconds / 3600).toStringAsFixed(
+        _service.baseSeconds % 3600 == 0 ? 0 : 1,
+      ),
+    );
+    final text = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('补录历史观看时长'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: '小时',
+            hintText: '例如 500',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (text == null) return;
+    final hours = double.tryParse(text.trim());
+    if (hours == null || hours < 0) return;
+    _service.setBaseSeconds((hours * 3600).round());
+    if (mounted) setState(() {});
+  }
+
+  Widget _personaCard(ThemeData theme) {
+    final color = theme.colorScheme;
+    final total = _service.totalSeconds;
+    final late = _service.lateNightSeconds;
+    final authors = _service.topAuthors(limit: 1);
+    final top = authors.isEmpty ? 0 : authors.first.seconds;
+    final started = _service.startedVideos;
+    final completed = _service.completedVideos;
+    final active = _service.activeDays;
+    double ratio(int a, int b) {
+      if (b <= 0) return 0;
+      return (a / b).clamp(0.0, 1.0).toDouble();
+    }
+
+    final scores = <({String label, double value, String note})>[
+      (
+        label: '电子榨菜依赖度',
+        value: (total / 3600 / 100).clamp(0.0, 1.0).toDouble(),
+        note: '累计 ${_format(total)}',
+      ),
+      (
+        label: '深夜修仙指数',
+        value: ratio(late, total),
+        note: '凌晨 0-5 点占 ${(ratio(late, total) * 100).round()}%',
+      ),
+      (
+        label: '单推浓度',
+        value: ratio(top, total),
+        note: authors.isEmpty ? '还没有数据' : '最常看 ${authors.first.author}',
+      ),
+      (
+        label: '视频仓鼠症',
+        value: ratio(started, active * 3),
+        note: '活跃 $active 天，看过 $started 个视频',
+      ),
+      (
+        label: '弃坑指数',
+        value: ratio(started - completed, started),
+        note: '看完 $completed / $started',
+      ),
+    ];
+    var persona = '电子榨菜成瘾者';
+    if (ratio(late, total) >= 0.3) {
+      persona = '深夜考古学家';
+    } else if (ratio(started - completed, started) >= 0.6) {
+      persona = '弃坑大师';
+    } else if (ratio(top, total) >= 0.5 && total >= 3600) {
+      persona = '单推狂魔';
+    } else if (ratio(started, active * 3) >= 0.8) {
+      persona = '视频仓鼠';
+    } else if (ratio(completed, started) >= 0.7 && started >= 10) {
+      persona = '认真看完党';
+    }
+    return Card(
+      margin: const EdgeInsets.all(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'B站成分报告',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '你的观看人格：$persona',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: color.primary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final score in scores) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      score.label,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  Text(
+                    '${(score.value * 100).round()}%',
+                    style: TextStyle(fontSize: 11, color: color.outline),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              LinearProgressIndicator(
+                value: score.value,
+                minHeight: 5,
+                borderRadius: BorderRadius.circular(5),
+                backgroundColor: color.secondaryContainer,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                score.note,
+                style: TextStyle(fontSize: 10, color: color.outline),
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
         ),
       ),
@@ -576,6 +795,8 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
 
   Widget _achievementsCard(ThemeData theme) {
     final total = _service.totalSeconds;
+    final topAuthors = _service.topAuthors(limit: 1);
+    final topSeconds = topAuthors.isEmpty ? 0 : topAuthors.first.seconds;
     final achievements = <_Achievement>[
       _Achievement(
         Icons.play_circle_outline,
@@ -666,6 +887,18 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
         '常驻观众',
         '累计活跃 30 天',
         _service.activeDays >= 30,
+      ),
+      _Achievement(
+        Icons.nightlight_round,
+        '凌晨三点',
+        '凌晨 3 点还在看视频',
+        _service.hourSeconds(3) > 0,
+      ),
+      _Achievement(
+        Icons.favorite,
+        '单推狂魔',
+        '一半观看时间给了同一个 UP',
+        total > 3600 && topSeconds >= total ~/ 2,
       ),
     ];
     final unlocked = achievements.where((e) => e.unlocked).length;
@@ -782,6 +1015,15 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
                         authors[i].author,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Lv${((authors[i].seconds / 3600 / 10).floor() + 1).clamp(1, 10)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                     const SizedBox(width: 8),

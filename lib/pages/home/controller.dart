@@ -32,6 +32,7 @@ class HomeController extends GetxController
 
   /// 首页「继续观看」：只保留没看完的普通视频/番剧/课堂。
   final RxList<HistoryItemModel> continueWatching = <HistoryItemModel>[].obs;
+  late final RxBool showContinueWatching = Pref.showContinueWatching.obs;
   bool _continueLoaded = false;
   Worker? _loginWorker;
 

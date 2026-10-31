@@ -294,6 +294,9 @@ abstract final class Pref {
   static bool get appRcmd =>
       _setting.get(SettingBoxKey.appRcmd, defaultValue: true);
 
+  static bool get showContinueWatching =>
+      _setting.get(SettingBoxKey.showContinueWatching, defaultValue: true);
+
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
 

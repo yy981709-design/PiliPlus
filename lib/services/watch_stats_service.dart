@@ -124,10 +124,24 @@ class WatchStatsService {
     return total;
   }
 
+  int get baseSeconds {
+    try {
+      return GStorage.watchStats.get('baseSeconds') as int? ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  void setBaseSeconds(int seconds) {
+    try {
+      GStorage.watchStats.put('baseSeconds', seconds.clamp(0, 1 << 31));
+    } catch (_) {}
+  }
+
   int get totalSeconds {
     try {
       final box = GStorage.watchStats;
-      var total = 0;
+      var total = baseSeconds;
       for (final key in box.keys) {
         if (key is String && key.startsWith(_dayPrefix)) {
           total += (box.get(key) as int? ?? 0);
@@ -135,7 +149,7 @@ class WatchStatsService {
       }
       return total;
     } catch (_) {
-      return 0;
+      return baseSeconds;
     }
   }
 

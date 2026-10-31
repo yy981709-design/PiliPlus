@@ -1,4 +1,5 @@
 import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
@@ -8,6 +9,18 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 
 List<SettingsModel> get recommendSettings => [
+  SwitchModel(
+    title: '首页显示继续观看',
+    subtitle: '在推荐页顶部显示未看完的视频',
+    leading: const Icon(Icons.play_circle_outline),
+    setKey: SettingBoxKey.showContinueWatching,
+    defaultVal: true,
+    onChanged: (value) {
+      try {
+        Get.find<HomeController>().showContinueWatching.value = value;
+      } catch (_) {}
+    },
+  ),
   const SwitchModel(
     title: '首页使用app端推荐',
     subtitle: '若web端推荐不太符合预期，可尝试切换至app端推荐',
