@@ -6,6 +6,7 @@ import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/video_card/video_card_v.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
+import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
@@ -39,6 +40,7 @@ class _RcmdPageState extends State<RcmdPage>
           controller: controller.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            SliverToBoxAdapter(child: _homeHeader(colorScheme)),
             SliverPadding(
               padding: const .only(top: Style.cardSpace, bottom: 100),
               sliver: Obx(
@@ -49,6 +51,156 @@ class _RcmdPageState extends State<RcmdPage>
         ),
       ),
     );
+  }
+
+  Widget _homeHeader(ColorScheme colorScheme) {
+    final stats = WatchStatsService.instance;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 4),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _quickAction(
+                Icons.watch_later_outlined,
+                '稍后再看',
+                colorScheme,
+                () => Get.toNamed('/later'),
+              ),
+              _quickAction(
+                Icons.history,
+                '观看记录',
+                colorScheme,
+                () => Get.toNamed('/history'),
+              ),
+              _quickAction(
+                Icons.star_border,
+                '我的收藏',
+                colorScheme,
+                () => Get.toNamed('/fav'),
+              ),
+              _quickAction(
+                Icons.download_outlined,
+                '离线缓存',
+                colorScheme,
+                () => Get.toNamed('/download'),
+              ),
+              if (Pref.showWatchStatsCard)
+                _quickAction(
+                  Icons.insights_outlined,
+                  '观看统计',
+                  colorScheme,
+                  () => Get.toNamed('/watchStats'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Material(
+            color: colorScheme.secondaryContainer.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => Get.toNamed('/watchStats'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    _miniStat('今日', _format(stats.todaySeconds), colorScheme),
+                    _divider(colorScheme),
+                    _miniStat(
+                      '连续',
+                      '${stats.currentStreak} 天',
+                      colorScheme,
+                    ),
+                    _divider(colorScheme),
+                    _miniStat('本周', _format(stats.weekSeconds), colorScheme),
+                    const Spacer(),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: colorScheme.outline,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickAction(
+    IconData icon,
+    String label,
+    ColorScheme colorScheme,
+    VoidCallback onTap,
+  ) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            children: [
+              Icon(icon, color: colorScheme.primary, size: 23),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniStat(String label, String value, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.primary,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 9, color: colorScheme.outline),
+        ),
+      ],
+    );
+  }
+
+  Widget _divider(ColorScheme colorScheme) {
+    return Container(
+      width: 1,
+      height: 24,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      color: colorScheme.outline.withValues(alpha: 0.2),
+    );
+  }
+
+  String _format(int seconds) {
+    if (seconds < 60) return '${seconds}秒';
+    final minutes = seconds ~/ 60;
+    if (minutes < 60) return '${minutes}分';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    return rest == 0 ? '${hours}小时' : '${hours}小时${rest}分';
   }
 
   late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
