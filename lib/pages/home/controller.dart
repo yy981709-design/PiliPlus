@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:PiliPlus/http/api.dart';
+import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/http/user.dart';
+import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/pages/common/common_controller.dart';
@@ -26,6 +29,11 @@ class HomeController extends GetxController
   bool enableSearchWord = Pref.enableSearchWord;
   late final RxString defaultSearch = ''.obs;
   late int lateCheckSearchAt = 0;
+
+  /// 首页「继续观看」：只保留没看完的普通视频/番剧/课堂。
+  final RxList<HistoryItemModel> continueWatching = <HistoryItemModel>[].obs;
+  bool _continueLoaded = false;
+  Worker? _loginWorker;
 
   ScrollOrRefreshMixin get controller => tabs[tabController.index].ctr();
 
@@ -55,13 +63,46 @@ class HomeController extends GetxController
     }
 
     setTabConfig();
+
+    _loginWorker = ever(accountService.isLogin, (isLogin) {
+      if (isLogin) fetchContinueWatching(force: true);
+    });
+    fetchContinueWatching();
   }
 
   @override
   Future<void> onRefresh() {
+    fetchContinueWatching(force: true);
     return controller.onRefresh().catchError((e) {
       if (kDebugMode) debugPrint(e.toString());
     });
+  }
+
+  Future<void> fetchContinueWatching({bool force = false}) async {
+    if (!force && _continueLoaded) return;
+    _continueLoaded = true;
+    if (!accountService.isLogin.value) {
+      continueWatching.clear();
+      return;
+    }
+    try {
+      final res = await UserHttp.historyList(type: 'all', ps: 20);
+      if (res case Success(:final response)) {
+        final list = response.list ?? const <HistoryItemModel>[];
+        continueWatching.value = list.where((e) {
+          final progress = e.progress;
+          final duration = e.duration;
+          if (progress == null || duration == null) return false;
+          if (progress <= 0 || duration <= 0 || progress == -1) return false;
+          // 留一点余量：最后 15 秒视为已看完
+          if (progress >= duration - 15) return false;
+          final business = e.history.business;
+          if (business == 'live') return false;
+          if (business?.contains('article') == true) return false;
+          return true;
+        }).take(6).toList();
+      }
+    } catch (_) {}
   }
 
   void setTabConfig() {
@@ -81,6 +122,7 @@ class HomeController extends GetxController
 
   @override
   void dispose() {
+    _loginWorker?.dispose();
     tabController.dispose();
     super.dispose();
   }

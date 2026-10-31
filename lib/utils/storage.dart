@@ -22,6 +22,7 @@ abstract final class GStorage {
   static late final Box<dynamic> setting;
   static late final Box<dynamic> video;
   static late final Box<int> watchProgress;
+  static late final Box<dynamic> watchStats;
   static late final Box<Uint8List>? reply;
 
   static Future<void> init() async {
@@ -62,6 +63,13 @@ abstract final class GStorage {
           return deletedEntries > 4;
         },
       ).then((res) => watchProgress = res),
+      // 观看统计
+      Hive.openBox<dynamic>(
+        'watchStats',
+        compactionStrategy: (entries, deletedEntries) {
+          return deletedEntries > 20;
+        },
+      ).then((res) => watchStats = res),
     ]);
 
     if (Pref.saveReply) {

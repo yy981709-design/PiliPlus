@@ -137,6 +137,31 @@ class VideoDetailController extends GetxController
   String? audioUrl;
   Duration? defaultST;
   Duration? playedTime;
+
+  /// 观看统计用：当前视频标题。
+  String get watchTitle {
+    try {
+      if (isUgc) {
+        final title = ugcIntroCtr.videoDetail.value.title;
+        if (title != null && title.isNotEmpty) return title;
+      } else {
+        final title = pgcIntroCtr.videoDetail.value.title;
+        if (title != null && title.isNotEmpty) return title;
+      }
+    } catch (_) {}
+    return (args['title'] as String?) ?? '';
+  }
+
+  /// 观看统计用：当前视频 UP 名（番剧/影视可能为空）。
+  String? get watchAuthor {
+    try {
+      if (isUgc) {
+        return ugcIntroCtr.videoDetail.value.owner?.name;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   String playedTimePos(bool hasParams) {
     final pos = playedTime?.inMilliseconds;
     if (pos != null && pos > 0) {

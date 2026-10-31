@@ -1,9 +1,13 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/models/common/home_tab_type.dart';
+
 import 'package:PiliPlus/common/widgets/custom_height_widget.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
+import 'package:PiliPlus/pages/home/widgets/continue_watching.dart';
+
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
@@ -81,6 +85,27 @@ class _HomePageState extends CommonPageState<HomePage>
             MediaQuery.sizeOf(context).isPortrait)
           customAppBar(),
         tabBar,
+        AnimatedBuilder(
+          animation: _homeController.tabController,
+          builder: (context, _) {
+            final tabs = _homeController.tabs;
+            if (tabs.isEmpty) return const SizedBox.shrink();
+            final index = _homeController.tabController.index;
+            if (index >= tabs.length || tabs[index] != HomeTabType.rcmd) {
+              return const SizedBox.shrink();
+            }
+            return Obx(() {
+              final items = _homeController.continueWatching;
+              if (items.isEmpty) return const SizedBox.shrink();
+              return ContinueWatchingBar(
+                items: items,
+                onMore: () {
+                  Get.toNamed('/history');
+                },
+              );
+            });
+          },
+        ),
         Expanded(
           child: onBuild(
             tabBarView(

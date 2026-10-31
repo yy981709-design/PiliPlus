@@ -56,6 +56,7 @@ import 'package:PiliPlus/plugin/pl_player/view/view.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
+import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
@@ -182,6 +183,14 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   void positionListener(Duration position) {
     videoDetailController.playedTime = position;
+    WatchStatsService.instance.onPosition(
+      id: '${videoDetailController.bvid}_${videoDetailController.cid.value}',
+      title: videoDetailController.watchTitle,
+      cover: videoDetailController.cover.value,
+      author: videoDetailController.watchAuthor,
+      position: position,
+      playing: videoDetailController.plPlayerController.playerStatus.isPlaying,
+    );
   }
 
   @override
@@ -218,6 +227,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   // 播放器状态监听
   Future<void> playerListener(PlayerStatus status) async {
     final isPlaying = status.isPlaying;
+    WatchStatsService.instance.onPlaybackStatus(isPlaying);
     try {
       if (videoDetailController.scrollCtr.hasClients) {
         if (isPlaying) {
@@ -333,6 +343,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    WatchStatsService.instance.flush();
     plPlayerController
       ?..removeStatusLister(playerListener)
       ..removePositionListener(positionListener);

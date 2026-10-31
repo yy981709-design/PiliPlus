@@ -14,6 +14,7 @@ import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
+import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/pages/mine/widgets/fav_item.dart';
 import 'package:PiliPlus/pages/mine/widgets/history_item.dart';
 import 'package:PiliPlus/pages/mine/widgets/later_item.dart';
@@ -95,6 +96,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                   children: [
                     _buildUserInfo(theme, secondary),
                     _buildActions(secondary),
+                    _buildWatchStatsCard(theme),
                     for (final tab in controller.mineTabs)
                       switch (tab) {
                         .favorite => Obx(_buildFav),
@@ -110,6 +112,64 @@ class _MediaPageState extends CommonPageState<MinePage>
         ),
       ],
     );
+  }
+
+  Widget _buildWatchStatsCard(ThemeData theme) {
+    final week = WatchStatsService.instance.weekSeconds;
+    final color = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+      child: Material(
+        color: color.secondaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => Get.toNamed('/watchStats')?.whenComplete(() {
+            if (mounted) setState(() {});
+          }),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.insights_rounded, color: color.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '观看统计',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        week > 0
+                            ? '本周已看 ${_formatWatchTime(week)}'
+                            : '记录你的观看时长',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: color.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: color.outline),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatWatchTime(int seconds) {
+    if (seconds < 60) return '$seconds 秒';
+    final minutes = seconds ~/ 60;
+    if (minutes < 60) return '$minutes 分钟';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    return rest == 0 ? '$hours 小时' : '$hours 小时 $rest 分';
   }
 
   Widget _buildActions(Color primary) {
