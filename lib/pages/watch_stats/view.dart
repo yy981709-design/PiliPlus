@@ -61,6 +61,8 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
         title: const Text('观看统计'),
         actions: [
           if (total > 0)

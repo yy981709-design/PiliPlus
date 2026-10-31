@@ -117,7 +117,8 @@ class _MediaPageState extends CommonPageState<MinePage>
   }
 
   Widget _buildWatchStatsCard(ThemeData theme) {
-    final week = WatchStatsService.instance.weekSeconds;
+    final stats = WatchStatsService.instance;
+    final week = stats.weekSeconds;
     final color = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
@@ -146,7 +147,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                       const SizedBox(height: 2),
                       Text(
                         week > 0
-                            ? '本周已看 ${_formatWatchTime(week)}'
+                            ? '今日 ${_formatWatchTime(stats.todaySeconds)} · 本周 ${_formatWatchTime(week)} · 连续 ${stats.currentStreak} 天'
                             : '记录你的观看时长',
                         style: TextStyle(
                           fontSize: 12,
@@ -175,32 +176,39 @@ class _MediaPageState extends CommonPageState<MinePage>
   }
 
   Widget _buildActions(Color primary) {
-    return Row(
-      mainAxisAlignment: .spaceEvenly,
-      children: controller.list
+    final list = [
+      ...controller.list,
+      (
+        icon: Icons.star_border,
+        title: '我的收藏',
+        onTap: () => Get.toNamed('/fav'),
+      ),
+      (
+        icon: Icons.settings_outlined,
+        title: '设置',
+        onTap: () => Get.toNamed('/setting', preventDuplicates: false),
+      ),
+    ];
+    return GridView.count(
+      crossAxisCount: 4,
+      shrinkWrap: true,
+      primary: false,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      childAspectRatio: 1.05,
+      children: list
           .map(
-            (e) => Flexible(
-              child: InkWell(
-                onTap: e.onTap,
-                borderRadius: Style.mdRadius,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 80),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: Column(
-                      spacing: 6,
-                      mainAxisSize: .min,
-                      mainAxisAlignment: .center,
-                      children: [
-                        Icon(e.icon, color: primary),
-                        Text(
-                          e.title,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+            (e) => InkWell(
+              onTap: e.onTap,
+              borderRadius: Style.mdRadius,
+              child: Column(
+                spacing: 6,
+                mainAxisSize: .min,
+                mainAxisAlignment: .center,
+                children: [
+                  Icon(e.icon, color: primary),
+                  Text(e.title, style: const TextStyle(fontSize: 12)),
+                ],
               ),
             ),
           )
