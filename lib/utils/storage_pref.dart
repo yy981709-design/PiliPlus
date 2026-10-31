@@ -653,6 +653,9 @@ abstract final class Pref {
     return horizontalScreen;
   }
 
+  static bool get forcePortrait =>
+      _setting.get(SettingBoxKey.forcePortrait, defaultValue: false);
+
   static String get banWordForDyn =>
       _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
 

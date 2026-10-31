@@ -76,6 +76,22 @@ List<SettingsModel> get styleSettings => [
     defaultVal: Pref.horizontalScreen,
     onChanged: _onHorizontalScreenChanged,
   ),
+  SwitchModel(
+    title: '强制竖屏',
+    subtitle: '锁定为竖屏；视频全屏时仍可横屏',
+    leading: const Icon(Icons.screen_lock_portrait_outlined),
+    setKey: SettingBoxKey.forcePortrait,
+    defaultVal: false,
+    onChanged: (value) {
+      if (value) {
+        portraitUpMode();
+      } else if (Pref.horizontalScreen) {
+        fullMode();
+      } else {
+        portraitUpMode();
+      }
+    },
+  ),
   const SwitchModel(
     title: '改用侧边栏',
     subtitle: '开启后底栏与顶栏被替换，且相关设置失效',

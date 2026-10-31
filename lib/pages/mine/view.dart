@@ -47,6 +47,14 @@ class _MediaPageState extends CommonPageState<MinePage>
   late ThemeData theme;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mainController.showBottomBar?.value = true;
+    });
+  }
+
+  @override
   bool get wantKeepAlive => true;
 
   bool get checkPage =>
@@ -55,18 +63,24 @@ class _MediaPageState extends CommonPageState<MinePage>
 
   @override
   bool onNotificationType1(UserScrollNotification notification) {
+    _mainController.showBottomBar?.value = true;
     if (checkPage) {
       return false;
     }
-    return super.onNotificationType1(notification);
+    final result = super.onNotificationType1(notification);
+    _mainController.showBottomBar?.value = true;
+    return result;
   }
 
   @override
   bool onNotificationType2(ScrollNotification notification) {
+    _mainController.showBottomBar?.value = true;
     if (checkPage) {
       return false;
     }
-    return super.onNotificationType2(notification);
+    final result = super.onNotificationType2(notification);
+    _mainController.showBottomBar?.value = true;
+    return result;
   }
 
   @override
