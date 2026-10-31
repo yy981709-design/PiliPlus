@@ -1,19 +1,14 @@
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/models/common/home_tab_type.dart';
-
 import 'package:PiliPlus/common/widgets/custom_height_widget.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
-import 'package:PiliPlus/pages/home/widgets/continue_watching.dart';
-
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
@@ -26,33 +21,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends CommonPageState<HomePage>
-    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+    with AutomaticKeepAliveClientMixin {
   late ColorScheme _colorScheme;
   final _homeController = Get.putOrFind(HomeController.new);
   final _mainController = Get.find<MainController>();
-  double _downScroll = 0;
-  late final AnimationController _cwController;
-  late final Animation<double> _cwAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _cwController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 420),
-      value: 1,
-    );
-    _cwAnimation = CurvedAnimation(
-      parent: _cwController,
-      curve: Curves.easeInOutCubicEmphasized,
-    );
-  }
-
-  @override
-  void dispose() {
-    _cwController.dispose();
-    super.dispose();
-  }
 
   @override
   bool get needsCorrection => _homeController.hideTopBar;
@@ -86,8 +58,6 @@ class _HomePageState extends CommonPageState<HomePage>
             tabAlignment: TabAlignment.center,
             onTap: (_) {
               feedBack();
-              _downScroll = 0;
-              _cwController.value = 1;
               if (!_homeController.tabController.indexIsChanging) {
                 _homeController.animateToTop();
               }
@@ -111,79 +81,16 @@ class _HomePageState extends CommonPageState<HomePage>
             MediaQuery.sizeOf(context).isPortrait)
           customAppBar(),
         tabBar,
-        AnimatedBuilder(
-          animation: _homeController.tabController,
-          builder: (context, _) {
-            final tabs = _homeController.tabs;
-            if (tabs.isEmpty) return const SizedBox.shrink();
-            final index = _homeController.tabController.index;
-            if (index >= tabs.length || tabs[index] != HomeTabType.rcmd) {
-              return const SizedBox.shrink();
-            }
-            return AnimatedBuilder(
-              animation: _cwAnimation,
-              builder: (context, child) => Opacity(
-                opacity: _cwAnimation.value,
-                child: IgnorePointer(
-                  ignoring: _cwAnimation.value < 0.05,
-                  child: child,
-                ),
-              ),
-              child: Obx(() {
-                if (!_homeController.showContinueWatching.value) {
-                  return const SizedBox.shrink();
-                }
-                final items = _homeController.continueWatching;
-                if (items.isEmpty) return const SizedBox.shrink();
-                return ContinueWatchingBar(
-                  items: items,
-                  onMore: () {
-                    Get.toNamed('/history');
-                  },
-                );
-              }),
-            );
-          },
-        ),
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
-            child: onBuild(
-              tabBarView(
-                controller: _homeController.tabController,
-                children: _homeController.tabs.map((e) => e.page).toList(),
-              ),
+          child: onBuild(
+            tabBarView(
+              controller: _homeController.tabController,
+              children: _homeController.tabs.map((e) => e.page).toList(),
             ),
           ),
         ),
       ],
     );
-  }
-
-  bool _onScroll(ScrollNotification notification) {
-    if (notification.metrics.axis != Axis.vertical) return false;
-    if (!Pref.continueWatchingAutoHide) {
-      _downScroll = 0;
-      if (_cwController.value != 1) {
-        _cwController.animateTo(
-          1,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-        );
-      }
-      return false;
-    }
-    if (notification is ScrollUpdateNotification) {
-      final delta = notification.scrollDelta ?? 0;
-      if (delta == 0) return false;
-      final threshold = Pref.continueWatchingHideThreshold.toDouble();
-      _downScroll = (_downScroll + delta).clamp(0.0, threshold);
-      final target = 1 - (_downScroll / threshold).clamp(0.0, 1.0);
-      if ((_cwController.value - target).abs() > 0.001) {
-        _cwController.value = target;
-      }
-    }
-    return false;
   }
 
   Widget customAppBar() {
