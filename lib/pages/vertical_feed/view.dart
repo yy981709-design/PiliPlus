@@ -49,6 +49,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
         _items.add(
           _VerticalItem(
             aid: args['aid'] as int? ?? 0,
+            mid: args['mid'] as int? ?? 0,
             bvid: bvid,
             cid: cid,
             title: args['title'] as String? ?? '',
@@ -88,6 +89,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
             _items.add(
               _VerticalItem(
                 aid: item.aid ?? 0,
+                mid: item.owner?.mid ?? 0,
                 bvid: bvid,
                 cid: cid,
                 title: item.title ?? '',
@@ -154,6 +156,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
 
 class _VerticalItem {
   final int aid;
+  final int mid;
   final String bvid;
   final int cid;
   final String title;
@@ -164,6 +167,7 @@ class _VerticalItem {
 
   const _VerticalItem({
     required this.aid,
+    required this.mid,
     required this.bvid,
     required this.cid,
     required this.title,
@@ -203,6 +207,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   int? _favoriteCount;
   int? _shareCount;
   int? _viewCount;
+  String? _avatar;
+  bool _followed = false;
+  bool _followLoading = false;
 
   @override
   void initState() {
@@ -246,6 +253,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             _commentCount = stat.reply;
             _favoriteCount = stat.favorite;
             _shareCount = stat.share;
+            _avatar = response.owner?.face;
           });
         }
       }
@@ -349,6 +357,43 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     }
   }
 
+  Future<void> _follow() async {
+    if (_followLoading) return;
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    if (widget.item.mid <= 0) {
+      SmartDialog.showToast('UP 信息缺失');
+      return;
+    }
+    _followLoading = true;
+    final res = await VideoHttp.relationMod(
+      mid: widget.item.mid,
+      act: _followed ? 2 : 1,
+      reSrc: 14,
+    );
+    _followLoading = false;
+    if (res.isSuccess) {
+      if (mounted) setState(() => _followed = !_followed);
+      SmartDialog.showToast(_followed ? '已关注' : '已取消关注');
+    } else {
+      SmartDialog.showToast('操作失败');
+    }
+  }
+
+  void _openDetail() {
+    PageUtils.toVideoPage(
+      aid: widget.item.aid > 0 ? widget.item.aid : null,
+      bvid: widget.item.bvid,
+      cid: widget.item.cid,
+      title: widget.item.title,
+      cover: widget.item.cover,
+      isVertical: true,
+      extraArguments: const {'noVerticalFeed': true},
+    );
+  }
+
   void _togglePlay() {
     final player = _player;
     if (player == null) {
@@ -399,6 +444,13 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               onPressed: () => Get.back(),
               icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
             ),
+          ),          Positioned(
+            right: 12,
+            top: MediaQuery.paddingOf(context).top + 8,
+            child: IconButton(
+              onPressed: _openDetail,
+              icon: const Icon(Icons.open_in_new, color: Colors.white),
+            ),
           ),
           if (!widget.active || _loading)
             const Center(
@@ -432,7 +484,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   icon: Icons.star_border,
                   label: '收藏',
                   count: _favoriteCount ?? 0,
-                  onTap: () => SmartDialog.showToast('收藏下一步接入'),
+                  onTap: _openDetail,
                 ),
                 _action(
                   icon: Icons.share_outlined,
@@ -511,11 +563,17 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     CircleAvatar(
                       radius: 18,
                       backgroundColor: Colors.white24,
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white70,
-                        size: 20,
-                      ),
+                      backgroundImage:
+                          _avatar?.isNotEmpty == true
+                          ? NetworkImage(_avatar!)
+                          : null,
+                      child: _avatar?.isNotEmpty == true
+                          ? null
+                          : const Icon(
+                              Icons.person,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
                     ),
                     const SizedBox(width: 8),
                     Flexible(
@@ -531,14 +589,19 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton(
-                      onPressed: () => SmartDialog.showToast('关注下一步接入'),
+                      onPressed: _follow,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white70),
+                        foregroundColor: _followed ? Colors.white70 : Colors.white,
+                        side: BorderSide(
+                          color: _followed ? Colors.white38 : Colors.white70,
+                        ),
                         minimumSize: const Size(0, 30),
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                       ),
-                      child: const Text('关注', style: TextStyle(fontSize: 12)),
+                      child: Text(
+                        _followed ? '已关注' : '关注',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -649,6 +712,8 @@ class _VerticalComments extends StatefulWidget {
 class _VerticalCommentsState extends State<_VerticalComments> {
   final List<ReplyItemModel> _replies = [];
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _inputController = TextEditingController();
+  bool _sending = false;
   int _page = 1;
   int? _count;
   bool _loading = false;
@@ -670,6 +735,7 @@ class _VerticalCommentsState extends State<_VerticalComments> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _inputController.dispose();
     super.dispose();
   }
 
@@ -697,6 +763,33 @@ class _VerticalCommentsState extends State<_VerticalComments> {
     }
     _loading = false;
     if (mounted) setState(() {});
+  }
+
+  Future<void> _send() async {
+    final text = _inputController.text.trim();
+    if (text.isEmpty || _sending) return;
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    _sending = true;
+    final res = await VideoHttp.replyAdd(
+      type: 1,
+      oid: widget.aid,
+      message: text,
+    );
+    _sending = false;
+    if (res.isSuccess) {
+      _inputController.clear();
+      _page = 1;
+      _replies.clear();
+      _end = false;
+      _count = null;
+      await _loadMore();
+      SmartDialog.showToast('评论成功');
+    } else {
+      SmartDialog.showToast('发送失败');
+    }
   }
 
   @override
@@ -816,6 +909,58 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                       );
                     },
                   ),
+          ),
+          SafeArea(
+            top: false,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                12,
+                8,
+                8,
+                8 + MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Colors.white12)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _inputController,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: '发条评论...',
+                        hintStyle: const TextStyle(color: Colors.white38),
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.white10,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _sending ? null : _send,
+                    icon: _sending
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white54,
+                            ),
+                          )
+                        : const Icon(Icons.send, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
