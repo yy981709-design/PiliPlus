@@ -78,6 +78,12 @@ jobs:
                   flutter-version-file: pubspec.yaml
                   cache: true
 
+            - name: Cache debug keystore
+              uses: actions/cache@v4
+              with:
+                  path: ~/.android/debug.keystore
+                  key: android-debug-keystore-v1
+
             - name: Apply Patch
               shell: pwsh
               run: lib/scripts/patch.ps1 android
