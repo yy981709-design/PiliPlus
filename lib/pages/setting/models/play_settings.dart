@@ -29,6 +29,13 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get playSettings => [
+  const SwitchModel(
+    title: '竖屏视频流',
+    subtitle: '打开竖屏视频时进入可上下滑动的竖屏流',
+    leading: Icon(Icons.smart_display_outlined),
+    setKey: SettingBoxKey.verticalFeed,
+    defaultVal: true,
+  ),
   NormalModel(
     onTap: (context, setState) => Get.toNamed('/playSpeedSet'),
     leading: const Icon(Icons.speed_outlined),

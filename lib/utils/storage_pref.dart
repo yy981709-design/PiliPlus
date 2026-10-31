@@ -656,6 +656,9 @@ abstract final class Pref {
   static bool get forcePortrait =>
       _setting.get(SettingBoxKey.forcePortrait, defaultValue: false);
 
+  static bool get verticalFeed =>
+      _setting.get(SettingBoxKey.verticalFeed, defaultValue: true);
+
   static String get banWordForDyn =>
       _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
 
