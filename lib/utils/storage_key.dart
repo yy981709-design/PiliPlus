@@ -56,6 +56,7 @@ abstract final class SettingBoxKey {
       recordWatchStats = 'recordWatchStats',
       showWatchStatsCard = 'showWatchStatsCard',
       watchLevelStyle = 'watchLevelStyle',
+      verticalFeed = 'verticalFeed',
       enableSaveLastData = 'enableSaveLastData',
       minDurationForRcmd = 'minDurationForRcmd',
       minPlayForRcmd = 'minPlayForRcmd',

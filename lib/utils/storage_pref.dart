@@ -315,6 +315,9 @@ abstract final class Pref {
   static int get watchLevelStyle =>
       _setting.get(SettingBoxKey.watchLevelStyle, defaultValue: 0);
 
+  static bool get verticalFeed =>
+      _setting.get(SettingBoxKey.verticalFeed, defaultValue: true);
+
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
 

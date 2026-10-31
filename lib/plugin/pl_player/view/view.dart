@@ -59,6 +59,7 @@ import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/ios/pip_helper.dart';
+import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/mobile_observer.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -842,6 +843,32 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       ),
 
+      /// 竖屏模式
+      BottomControlType.vertical => ComBtn(
+        width: widgetWidth,
+        height: 30,
+        tooltip: '竖屏模式',
+        icon: const Icon(
+          Icons.stay_current_portrait,
+          size: 24,
+          color: Colors.white,
+        ),
+        onTap: () {
+          PageUtils.toDupNamed(
+            '/verticalFeed',
+            arguments: {
+              'aid': videoDetailController.aid,
+              'bvid': videoDetailController.bvid,
+              'cid': videoDetailController.cid.value,
+              'cover': videoDetailController.cover.value,
+              'title': videoDetailController.watchTitle,
+              'isVertical': true,
+              'noVerticalFeed': true,
+            },
+          );
+        },
+      ),
+
       /// 全屏
       BottomControlType.fullscreen => ComBtn(
         width: widgetWidth,
@@ -879,6 +906,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       .subtitle,
       .speed,
       if (isNotFileSource && flag) .qa,
+      if (isNotFileSource && !plPlayerController.isDesktopPip) .vertical,
       if (!plPlayerController.isDesktopPip) .fullscreen,
     ];
     return PlayerBar(
