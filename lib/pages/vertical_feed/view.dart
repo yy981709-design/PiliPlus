@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'dart:async';
 
 import 'package:PiliPlus/http/constants.dart';
@@ -195,11 +197,18 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _loading = false;
   bool _liked = false;
   bool _disliked = false;
+  bool _statsLoading = false;
+  int? _likeCount;
+  int? _commentCount;
+  int? _favoriteCount;
+  int? _shareCount;
+  int? _viewCount;
 
   @override
   void initState() {
     super.initState();
     if (widget.active) _initPlayer();
+    _loadStats();
   }
 
   @override
@@ -221,6 +230,27 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     _completedSub?.cancel();
     _player?.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadStats() async {
+    if (_statsLoading) return;
+    _statsLoading = true;
+    try {
+      final res = await VideoHttp.videoIntro(bvid: widget.item.bvid);
+      if (res case Success(:final response)) {
+        final stat = response.stat;
+        if (stat != null && mounted) {
+          setState(() {
+            _viewCount = stat.view;
+            _likeCount = stat.like;
+            _commentCount = stat.reply;
+            _favoriteCount = stat.favorite;
+            _shareCount = stat.share;
+          });
+        }
+      }
+    } catch (_) {}
+    _statsLoading = false;
   }
 
   Future<void> _initPlayer() async {
@@ -338,20 +368,20 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Image.network(
+              item.cover,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black),
+            ),
+          ),
+          const ColoredBox(color: Colors.black38),
           if (_videoController != null)
             Video(
               controller: _videoController!,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               controls: (state) => const SizedBox.shrink(),
-            )
-          else
-            Image.network(
-              item.cover,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const ColoredBox(
-                color: Colors.black,
-                child: SizedBox.expand(),
-              ),
             ),
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -382,13 +412,14 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 _action(
                   icon: _liked ? Icons.favorite : Icons.favorite_border,
                   label: '点赞',
-                  count: _liked ? item.like + 1 : item.like,
+                  count: (_likeCount ?? item.like) + (_liked ? 1 : 0),
                   active: _liked,
                   onTap: _toggleLike,
                 ),
                 _action(
                   icon: Icons.chat_bubble_outline,
                   label: '评论',
+                  count: _commentCount ?? 0,
                   onTap: _openComments,
                 ),
                 _action(
@@ -400,16 +431,51 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 _action(
                   icon: Icons.star_border,
                   label: '收藏',
+                  count: _favoriteCount ?? 0,
                   onTap: () => SmartDialog.showToast('收藏下一步接入'),
                 ),
                 _action(
                   icon: Icons.share_outlined,
                   label: '分享',
+                  count: _shareCount ?? 0,
                   onTap: () => ShareUtils.shareText(
                     'https://www.bilibili.com/video/${item.bvid}',
                   ),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 10,
+            child: InkWell(
+              onTap: _openComments,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.edit_outlined, color: Colors.white70, size: 17),
+                    SizedBox(width: 8),
+                    Text(
+                      '发条评论...',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    Spacer(),
+                    Icon(
+                      Icons.emoji_emotions_outlined,
+                      color: Colors.white70,
+                      size: 19,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           if (_player != null)
@@ -436,7 +502,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           Positioned(
             left: 16,
             right: 84,
-            bottom: 80,
+            bottom: 112,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -487,10 +553,10 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     height: 1.3,
                   ),
                 ),
-                if (item.view > 0) ...[
+                if ((_viewCount ?? item.view) > 0) ...[
                   const SizedBox(height: 6),
                   Text(
-                    '${item.view} 播放',
+                    '${_viewCount ?? item.view} 播放',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 11,
@@ -581,17 +647,56 @@ class _VerticalComments extends StatefulWidget {
 }
 
 class _VerticalCommentsState extends State<_VerticalComments> {
-  late final Future<LoadingState<ReplyData>> _future = _load();
+  final List<ReplyItemModel> _replies = [];
+  final ScrollController _scrollController = ScrollController();
+  int _page = 1;
+  int? _count;
+  bool _loading = false;
+  bool _end = false;
+  bool _failed = false;
 
-  Future<LoadingState<ReplyData>> _load() {
-    return ReplyHttp.replyList(
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        _loadMore();
+      }
+    });
+    _loadMore();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || _end) return;
+    _loading = true;
+    final res = await ReplyHttp.replyList(
       isLogin: Accounts.main.isLogin,
       oid: widget.aid,
       nextOffset: '',
       type: 1,
-      page: 1,
+      page: _page,
       sort: 1,
     );
+    if (!mounted) return;
+    if (res case Success(:final response)) {
+      final list = response.replies ?? const <ReplyItemModel>[];
+      _count = response.cursor?.allCount ?? _count;
+      _replies.addAll(list);
+      _page++;
+      _end = (response.cursor?.isEnd ?? false) || list.length < 20;
+    } else {
+      _failed = true;
+      _end = true;
+    }
+    _loading = false;
+    if (mounted) setState(() {});
   }
 
   @override
@@ -608,9 +713,9 @@ class _VerticalCommentsState extends State<_VerticalComments> {
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
             child: Row(
               children: [
-                const Text(
-                  '评论',
-                  style: TextStyle(
+                Text(
+                  _count == null ? '评论' : '评论 $_count',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -626,31 +731,32 @@ class _VerticalCommentsState extends State<_VerticalComments> {
           ),
           const Divider(height: 1, color: Colors.white12),
           Expanded(
-            child: FutureBuilder<LoadingState<ReplyData>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  );
-                }
-                final state = snapshot.data;
-                if (state is Success<ReplyData>) {
-                  final replies = state.response.replies ?? const [];
-                  if (replies.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        '还没有评论',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                    );
-                  }
-                  return ListView.separated(
+            child: _replies.isEmpty
+                ? Center(
+                    child: _loading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            _failed ? '评论加载失败' : '还没有评论',
+                            style: const TextStyle(color: Colors.white54),
+                          ),
+                  )
+                : ListView.separated(
+                    controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    itemCount: replies.length,
+                    itemCount: _replies.length + (_end ? 0 : 1),
                     separatorBuilder: (_, _) => const SizedBox(height: 14),
                     itemBuilder: (context, index) {
-                      final reply = replies[index];
+                      if (index >= _replies.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white54,
+                            ),
+                          ),
+                        );
+                      }
+                      final reply = _replies[index];
                       final avatar = reply.member?.avatar;
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,22 +799,23 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                                     height: 1.4,
                                   ),
                                 ),
+                                if ((reply.like ?? 0) > 0) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${reply.like} 赞',
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
                         ],
                       );
                     },
-                  );
-                }
-                return const Center(
-                  child: Text(
-                    '评论加载失败',
-                    style: TextStyle(color: Colors.white54),
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
