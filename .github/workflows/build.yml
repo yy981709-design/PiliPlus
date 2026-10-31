@@ -86,7 +86,11 @@ jobs:
               if: github.event_name == 'workflow_dispatch'
               run: |
                   if [ ! -z "${{ secrets.SIGN_KEYSTORE_BASE64 }}" ]; then
-                    echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
+                    echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | tr -d '[:space:]' | base64 --decode > android/app/key.jks
+                    if [ ! -s android/app/key.jks ]; then
+                      echo "keystore decode failed: SIGN_KEYSTORE_BASE64 is not valid base64"
+                      exit 1
+                    fi
                     echo storeFile='key.jks' >> android/key.properties
                     echo storePassword='${{ secrets.KEYSTORE_PASSWORD }}' >> android/key.properties
                     echo keyAlias='${{ secrets.KEY_ALIAS }}' >> android/key.properties
