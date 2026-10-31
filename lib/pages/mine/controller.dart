@@ -41,6 +41,7 @@ class MineController extends GetxController with AccountMixin {
 
   final Rx<ThemeType> themeType = Pref.themeType.obs;
   late final RxBool showWatchStatsCard = Pref.showWatchStatsCard.obs;
+  final RxList<HistoryItemModel> recentHistory = <HistoryItemModel>[].obs;
 
   ThemeType get nextThemeType =>
       ThemeType.values[(themeType.value.index + 1) % ThemeType.values.length];
@@ -116,11 +117,25 @@ class MineController extends GetxController with AccountMixin {
   void onInit() {
     super.onInit();
     _initTabs();
+    queryRecentHistory();
     final userInfoCache = Pref.userInfoCache;
     if (userInfoCache != null) {
       userInfo.value = userInfoCache;
       queryUserInfo();
       tabCtr().forEach((ctr) => ctr.queryData());
+    }
+  }
+
+  Future<void> queryRecentHistory() async {
+    if (!accountService.isLogin.value) {
+      recentHistory.clear();
+      return;
+    }
+    final res = await UserHttp.historyList(type: 'all', ps: 10);
+    if (res case Success(:final response)) {
+      recentHistory.value = (response.list ?? const <HistoryItemModel>[])
+          .take(6)
+          .toList();
     }
   }
 
@@ -137,6 +152,7 @@ class MineController extends GetxController with AccountMixin {
         accountService
           ..face.value = response.face!
           ..isLogin.value = true;
+        queryRecentHistory();
       } else {
         _onLogoutMain();
         return;
@@ -306,6 +322,7 @@ class MineController extends GetxController with AccountMixin {
     if (isManual) {
       queryUserInfo();
     }
+    queryRecentHistory();
     return Future.wait(
       tabCtr().map((ctr) => ctr.onRefresh(isManual: isManual)),
     );

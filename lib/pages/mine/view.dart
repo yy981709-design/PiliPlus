@@ -13,6 +13,7 @@ import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
+import 'package:PiliPlus/pages/history/widgets/item.dart' show onPushHistory;
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/pages/mine/widgets/fav_item.dart';
@@ -106,10 +107,81 @@ class _MediaPageState extends CommonPageState<MinePage>
                         .later => Obx(_buildLater),
                         .sub => Obx(_buildSub),
                       },
+                    Obx(() => _buildRecentHistory(theme)),
                   ],
                 ),
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentHistory(ThemeData theme) {
+    final list = controller.recentHistory;
+    if (list.isEmpty) return const SizedBox.shrink();
+    final color = theme.colorScheme;
+    return Column(
+      children: [
+        Divider(
+          height: 20,
+          color: color.outline.withValues(alpha: 0.1),
+        ),
+        ListTile(
+          dense: true,
+          onTap: () => Get.toNamed('/history'),
+          title: const Padding(
+            padding: EdgeInsets.only(left: 10),
+            child: Text('最近观看'),
+          ),
+          trailing: TextButton(
+            onPressed: () => Get.toNamed('/history'),
+            child: const Text('全部'),
+          ),
+        ),
+        SizedBox(
+          height: 112,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+            itemCount: list.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final item = list[index];
+              final cover = item.cover?.isNotEmpty == true
+                  ? item.cover!
+                  : (item.covers?.isNotEmpty == true ? item.covers!.first : '');
+              return SizedBox(
+                width: 156,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () {
+                    onPushHistory(item);
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: NetworkImgLayer(
+                          src: cover,
+                          width: 156,
+                          height: 88,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.title ?? '未知视频',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

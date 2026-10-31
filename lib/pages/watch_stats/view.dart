@@ -108,7 +108,7 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
+        padding: const EdgeInsets.only(bottom: 120),
         children: [
           _summaryCard(theme),
           if (total == 0)
