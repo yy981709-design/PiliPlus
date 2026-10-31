@@ -120,25 +120,28 @@ class _HomePageState extends CommonPageState<HomePage>
             if (index >= tabs.length || tabs[index] != HomeTabType.rcmd) {
               return const SizedBox.shrink();
             }
-            return SizeTransition(
-              sizeFactor: _cwAnimation,
-              axisAlignment: -1,
-              child: FadeTransition(
-                opacity: _cwAnimation,
-                child: Obx(() {
-                  if (!_homeController.showContinueWatching.value) {
-                    return const SizedBox.shrink();
-                  }
-                  final items = _homeController.continueWatching;
-                  if (items.isEmpty) return const SizedBox.shrink();
-                  return ContinueWatchingBar(
-                    items: items,
-                    onMore: () {
-                      Get.toNamed('/history');
-                    },
-                  );
-                }),
+            return AnimatedBuilder(
+              animation: _cwAnimation,
+              builder: (context, child) => Opacity(
+                opacity: _cwAnimation.value,
+                child: IgnorePointer(
+                  ignoring: _cwAnimation.value < 0.05,
+                  child: child,
+                ),
               ),
+              child: Obx(() {
+                if (!_homeController.showContinueWatching.value) {
+                  return const SizedBox.shrink();
+                }
+                final items = _homeController.continueWatching;
+                if (items.isEmpty) return const SizedBox.shrink();
+                return ContinueWatchingBar(
+                  items: items,
+                  onMore: () {
+                    Get.toNamed('/history');
+                  },
+                );
+              }),
             );
           },
         ),
