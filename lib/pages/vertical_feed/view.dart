@@ -21,6 +21,7 @@ import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -207,6 +208,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _liked = false;
   bool _disliked = false;
   bool _statsLoading = false;
+  bool _landscape = false;
+  bool _landscapeWork = false;
+  bool _uiHidden = false;
   int? _likeCount;
   int? _commentCount;
   int? _favoriteCount;
@@ -234,6 +238,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       }
     } else if (!widget.active && oldWidget.active) {
       _player?.pause();
+      if (_landscape) {
+        _landscape = false;
+        SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
     }
   }
 
@@ -241,6 +250,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   void dispose() {
     _completedSub?.cancel();
     _player?.dispose();
+    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -282,6 +293,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         referer: HttpString.baseUrl,
       );
       await player.open(Media(mediaUrl), play: true);
+      _landscapeWork = player.state.width > player.state.height;
       _completedSub = player.stream.completed.listen((completed) {
         if (completed && mounted && widget.active) widget.onCompleted();
       });
@@ -359,6 +371,29 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       setState(() => _disliked = !_disliked);
     } else {
       SmartDialog.showToast('操作失败');
+    }
+  }
+
+  void _toggleScreen() {
+    if (_landscapeWork) {
+      if (_landscape) {
+        _landscape = false;
+        SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      } else {
+        _landscape = true;
+        SystemChrome.setPreferredOrientations(const [
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      }
+      setState(() {});
+    } else {
+      setState(() => _uiHidden = !_uiHidden);
+      SystemChrome.setEnabledSystemUIMode(
+        _uiHidden ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+      );
     }
   }
 
@@ -450,16 +485,19 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ),
             ),
           ),
-          Positioned(
-            left: 14,
-            top: MediaQuery.paddingOf(context).top + 8,
+          if (!_uiHidden)
+            Positioned(
+              left: 14,
+              top: MediaQuery.paddingOf(context).top + 8,
             child: IconButton(
               onPressed: () => Get.back(),
               icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
             ),
-          ),          Positioned(
-            right: 12,
-            top: MediaQuery.paddingOf(context).top + 8,
+          ),
+          if (!_uiHidden)
+            Positioned(
+              right: 12,
+              top: MediaQuery.paddingOf(context).top + 8,
             child: IconButton(
               onPressed: _openDetail,
               icon: const Icon(Icons.open_in_new, color: Colors.white),
@@ -469,9 +507,10 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
             ),
-          Positioned(
-            right: 10,
-            bottom: 170,
+          if (!_uiHidden)
+            Positioned(
+              right: 10,
+              bottom: 160,
             child: Column(
               children: [
                 _action(
@@ -510,10 +549,44 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ],
             ),
           ),
-          Positioned(
-            left: 12,
-            right: 12,
-            bottom: 10,
+          if (!_uiHidden)
+            Positioned(
+              right: 12,
+              bottom: 54,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: _openDetail,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      minimumSize: const Size(0, 30),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text(
+                      '详情页',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: _landscapeWork ? '横屏' : '隐藏界面',
+                    onPressed: _toggleScreen,
+                    icon: Icon(
+                      _landscapeWork
+                          ? Icons.screen_rotation
+                          : Icons.fullscreen,
+                      color: Colors.white70,
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (!_uiHidden)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 10,
             child: InkWell(
               onTap: _openComments,
               borderRadius: BorderRadius.circular(20),
@@ -543,7 +616,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ),
             ),
           ),
-          if (_player != null)
+          if (!_uiHidden && _player != null)
             Positioned(
               left: 0,
               right: 0,
@@ -564,10 +637,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 },
               ),
             ),
-          Positioned(
-            left: 16,
-            right: 84,
-            bottom: 112,
+          if (!_uiHidden)
+            Positioned(
+              left: 16,
+              right: 84,
+              bottom: 112,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -690,6 +764,16 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ],
             ),
           ),
+          if (_uiHidden)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _uiHidden = false);
+                  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                },
+                child: const ColoredBox(color: Colors.transparent),
+              ),
+            ),
         ],
       ),
     );
