@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:PiliPlus/utils/storage.dart';
 
 /// 本地观看统计。
@@ -348,6 +350,29 @@ class WatchStatsService {
       return GStorage.watchStats.get('hour:$hour') as int? ?? 0;
     } catch (_) {
       return 0;
+    }
+  }
+
+  String exportJson() {
+    try {
+      return jsonEncode(GStorage.watchStats.toMap());
+    } catch (_) {
+      return '{}';
+    }
+  }
+
+  Future<bool> importJson(String data) async {
+    try {
+      final decoded = jsonDecode(data);
+      if (decoded is! Map) return false;
+      final box = GStorage.watchStats;
+      await box.clear();
+      for (final entry in decoded.entries) {
+        await box.put(entry.key, entry.value);
+      }
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

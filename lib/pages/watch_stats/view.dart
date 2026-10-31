@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/services/watch_stats_service.dart';
@@ -5,6 +7,8 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
 class WatchStatsPage extends StatefulWidget {
@@ -16,6 +20,7 @@ class WatchStatsPage extends StatefulWidget {
 
 class _WatchStatsPageState extends State<WatchStatsPage> {
   final _service = WatchStatsService.instance;
+  WatchVideoStat? _randomVideo;
 
   int get _goalHours {
     try {
@@ -29,6 +34,16 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
   void initState() {
     super.initState();
     _service.flush();
+    _shuffleRandom();
+  }
+
+  void _shuffleRandom() {
+    final list = _service.topVideos(limit: 100);
+    if (list.isEmpty) {
+      _randomVideo = null;
+    } else {
+      _randomVideo = list[Random().nextInt(list.length)];
+    }
   }
 
   @override
@@ -48,6 +63,22 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
       appBar: AppBar(
         title: const Text('观看统计'),
         actions: [
+          if (total > 0)
+            IconButton(
+              tooltip: '导出统计',
+              onPressed: () {
+                Clipboard.setData(
+                  ClipboardData(text: _service.exportJson()),
+                );
+                SmartDialog.showToast('统计已复制到剪贴板');
+              },
+              icon: const Icon(Icons.upload_outlined),
+            ),
+          IconButton(
+            tooltip: '导入统计',
+            onPressed: _importStats,
+            icon: const Icon(Icons.download_outlined),
+          ),
           if (total > 0)
             IconButton(
               tooltip: '分享报告',
@@ -84,6 +115,7 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
             _levelCard(theme, level),
             _backfillCard(theme),
             _personaCard(theme),
+            if (_randomVideo != null) _randomCard(theme),
             _goalCard(theme),
             _heatmapCard(theme),
             _weekCard(theme, days, maxSeconds),
@@ -245,6 +277,30 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _importStats() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null || text.trim().isEmpty) {
+      SmartDialog.showToast('剪贴板为空');
+      return;
+    }
+    if (!mounted) return;
+    final ok = await showConfirmDialog(
+      context: context,
+      title: const Text('导入观看统计？'),
+      content: const Text('会覆盖当前本机的统计数据。'),
+    );
+    if (!ok) return;
+    final success = await _service.importJson(text);
+    if (!mounted) return;
+    if (success) {
+      setState(() {});
+      SmartDialog.showToast('统计已导入');
+    } else {
+      SmartDialog.showToast('导入失败：内容不是有效的统计 JSON');
+    }
   }
 
   int? get _biliLevel {
@@ -441,6 +497,81 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _randomCard(ThemeData theme) {
+    final video = _randomVideo!;
+    final color = theme.colorScheme;
+    return Card(
+      margin: const EdgeInsets.all(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openVideo(video),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: NetworkImgLayer(
+                  src: video.cover,
+                  width: 112,
+                  height: 64,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '重温盲盒',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: color.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      video.title.isEmpty ? '未知视频' : video.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, height: 1.25),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${_format(video.seconds)} · ${video.author.isEmpty ? '未知 UP' : video.author}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: color.outline),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '换一个',
+                onPressed: () => setState(_shuffleRandom),
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openVideo(WatchVideoStat video) {
+    if (!video.id.startsWith('BV') && !video.id.startsWith('bv')) return;
+    final parts = video.id.split('_');
+    final cid = int.tryParse(parts.length > 1 ? parts.last : '');
+    if (cid == null) return;
+    PageUtils.toVideoPage(
+      bvid: parts.first,
+      cid: cid,
+      cover: video.cover,
+      title: video.title,
     );
   }
 
@@ -1069,19 +1200,7 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
     final color = theme.colorScheme;
     return InkWell(
       borderRadius: BorderRadius.circular(10),
-      onTap: video.id.startsWith('BV') || video.id.startsWith('bv')
-          ? () {
-              final parts = video.id.split('_');
-              final cid = int.tryParse(parts.length > 1 ? parts.last : '');
-              if (cid == null) return;
-              PageUtils.toVideoPage(
-                bvid: parts.first,
-                cid: cid,
-                cover: video.cover,
-                title: video.title,
-              );
-            }
-          : null,
+      onTap: () => _openVideo(video),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
