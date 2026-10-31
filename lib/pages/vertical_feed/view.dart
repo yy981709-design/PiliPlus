@@ -9,6 +9,7 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models_new/reply/data.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/home/rcmd/result.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
@@ -57,6 +58,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
             author: '',
             view: 0,
             like: 0,
+            pubdate: args['pubdate'] as int? ?? 0,
           ),
         );
       }
@@ -97,6 +99,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
                 author: item.owner?.name ?? '',
                 view: item.stat?.view ?? 0,
                 like: item.stat?.like ?? 0,
+                pubdate: item.pubdate ?? 0,
               ),
             );
           }
@@ -164,6 +167,7 @@ class _VerticalItem {
   final String author;
   final int view;
   final int like;
+  final int pubdate;
 
   const _VerticalItem({
     required this.aid,
@@ -175,6 +179,7 @@ class _VerticalItem {
     required this.author,
     required this.view,
     required this.like,
+    required this.pubdate,
   });
 }
 
@@ -394,6 +399,14 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     );
   }
 
+  void _search() {
+    Get.toNamed(
+      '/searchResult',
+      parameters: {'keyword': widget.item.title},
+      arguments: const {'initIndex': 0},
+    );
+  }
+
   void _togglePlay() {
     final player = _player;
     if (player == null) {
@@ -516,7 +529,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     Icon(Icons.edit_outlined, color: Colors.white70, size: 17),
                     SizedBox(width: 8),
                     Text(
-                      '发条评论...',
+                      '发弹幕...',
                       style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                     Spacer(),
@@ -588,21 +601,34 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: _follow,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _followed ? Colors.white70 : Colors.white,
-                        side: BorderSide(
-                          color: _followed ? Colors.white38 : Colors.white70,
+                    if (_followed)
+                      OutlinedButton(
+                        onPressed: _follow,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: const BorderSide(color: Colors.white38),
+                          minimumSize: const Size(0, 30),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
                         ),
-                        minimumSize: const Size(0, 30),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: const Text(
+                          '已关注',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      )
+                    else
+                      FilledButton(
+                        onPressed: _follow,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF6699),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 30),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        child: const Text(
+                          '关注',
+                          style: TextStyle(fontSize: 12),
+                        ),
                       ),
-                      child: Text(
-                        _followed ? '已关注' : '关注',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -619,13 +645,48 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 if ((_viewCount ?? item.view) > 0) ...[
                   const SizedBox(height: 6),
                   Text(
-                    '${_viewCount ?? item.view} 播放',
+                    '${_viewCount ?? item.view} 播放${item.pubdate > 0 ? ' · ${DateFormatUtils.dateFormat(item.pubdate)}' : ''}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 11,
                     ),
                   ),
                 ],
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: _search,
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search, color: Colors.white70, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '搜索 · ${item.title}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: Colors.white54,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -668,15 +729,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   shadows: [Shadow(color: Colors.black45, blurRadius: 6)],
                 ),
               ),
-              if (count > 0)
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 9,
-                    shadows: [Shadow(color: Colors.black45, blurRadius: 5)],
-                  ),
-                ),
+
             ],
           ),
         ),
