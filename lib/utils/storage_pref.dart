@@ -297,6 +297,21 @@ abstract final class Pref {
   static bool get showContinueWatching =>
       _setting.get(SettingBoxKey.showContinueWatching, defaultValue: true);
 
+  static bool get continueWatchingAutoHide =>
+      _setting.get(SettingBoxKey.continueWatchingAutoHide, defaultValue: true);
+
+  static int get continueWatchingHideThreshold =>
+      _setting.get(SettingBoxKey.continueWatchingHideThreshold, defaultValue: 240);
+
+  static int get continueWatchingLimit =>
+      _setting.get(SettingBoxKey.continueWatchingLimit, defaultValue: 6);
+
+  static bool get recordWatchStats =>
+      _setting.get(SettingBoxKey.recordWatchStats, defaultValue: true);
+
+  static bool get showWatchStatsCard =>
+      _setting.get(SettingBoxKey.showWatchStatsCard, defaultValue: true);
+
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
 

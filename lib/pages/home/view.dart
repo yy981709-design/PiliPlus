@@ -13,7 +13,7 @@ import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
-import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
@@ -31,6 +31,7 @@ class _HomePageState extends CommonPageState<HomePage>
   final _homeController = Get.putOrFind(HomeController.new);
   final _mainController = Get.find<MainController>();
   bool _hideContinueWatching = false;
+  double _downScroll = 0;
 
   @override
   bool get needsCorrection => _homeController.hideTopBar;
@@ -64,6 +65,7 @@ class _HomePageState extends CommonPageState<HomePage>
             tabAlignment: TabAlignment.center,
             onTap: (_) {
               feedBack();
+              _downScroll = 0;
               if (_hideContinueWatching) {
                 setState(() => _hideContinueWatching = false);
               }
@@ -138,20 +140,28 @@ class _HomePageState extends CommonPageState<HomePage>
 
   bool _onScroll(ScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) return false;
-    if (notification is UserScrollNotification) {
-      if (notification.direction == ScrollDirection.reverse &&
-          !_hideContinueWatching) {
-        setState(() => _hideContinueWatching = true);
-      } else if (notification.direction == ScrollDirection.forward &&
-          _hideContinueWatching) {
+    if (!Pref.continueWatchingAutoHide) {
+      _downScroll = 0;
+      if (_hideContinueWatching) {
         setState(() => _hideContinueWatching = false);
       }
+      return false;
+    }
+    if (notification is ScrollStartNotification) {
+      _downScroll = 0;
     } else if (notification is ScrollUpdateNotification) {
       final delta = notification.scrollDelta ?? 0;
-      if (delta > 0 && !_hideContinueWatching) {
-        setState(() => _hideContinueWatching = true);
-      } else if (delta < 0 && _hideContinueWatching) {
-        setState(() => _hideContinueWatching = false);
+      if (delta > 0) {
+        _downScroll += delta;
+        if (!_hideContinueWatching &&
+            _downScroll >= Pref.continueWatchingHideThreshold) {
+          setState(() => _hideContinueWatching = true);
+        }
+      } else if (delta < 0) {
+        _downScroll = 0;
+        if (_hideContinueWatching) {
+          setState(() => _hideContinueWatching = false);
+        }
       }
     }
     return false;

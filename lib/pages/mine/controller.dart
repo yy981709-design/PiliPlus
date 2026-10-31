@@ -40,6 +40,7 @@ class MineController extends GetxController with AccountMixin {
   final Rx<UserStat> userStat = const UserStat().obs;
 
   final Rx<ThemeType> themeType = Pref.themeType.obs;
+  late final RxBool showWatchStatsCard = Pref.showWatchStatsCard.obs;
 
   ThemeType get nextThemeType =>
       ThemeType.values[(themeType.value.index + 1) % ThemeType.values.length];

@@ -101,7 +101,7 @@ class HomeController extends GetxController
           if (business == 'live') return false;
           if (business?.contains('article') == true) return false;
           return true;
-        }).take(6).toList();
+        }).take(Pref.continueWatchingLimit).toList();
       }
     } catch (_) {}
   }

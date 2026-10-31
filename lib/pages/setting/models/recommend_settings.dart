@@ -10,6 +10,34 @@ import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 
 List<SettingsModel> get recommendSettings => [
   SwitchModel(
+    title: '继续观看自动隐藏',
+    subtitle: '向下滑动时收起，向上滑动恢复',
+    leading: const Icon(Icons.vertical_align_bottom),
+    setKey: SettingBoxKey.continueWatchingAutoHide,
+    defaultVal: true,
+  ),
+  getVideoFilterSelectModel(
+    title: '隐藏距离',
+    key: SettingBoxKey.continueWatchingHideThreshold,
+    values: [120, 200, 240, 320, 480],
+    defaultValue: 240,
+    suffix: 'px',
+    isFilter: false,
+  ),
+  getVideoFilterSelectModel(
+    title: '显示数量',
+    key: SettingBoxKey.continueWatchingLimit,
+    values: [3, 5, 8, 10],
+    defaultValue: 6,
+    suffix: '条',
+    isFilter: false,
+    onChanged: (_) {
+      try {
+        Get.find<HomeController>().fetchContinueWatching(force: true);
+      } catch (_) {}
+    },
+  ),
+  SwitchModel(
     title: '首页显示继续观看',
     subtitle: '在推荐页顶部显示未看完的视频',
     leading: const Icon(Icons.play_circle_outline),

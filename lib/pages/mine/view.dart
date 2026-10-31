@@ -96,7 +96,9 @@ class _MediaPageState extends CommonPageState<MinePage>
                   children: [
                     _buildUserInfo(theme, secondary),
                     _buildActions(secondary),
-                    _buildWatchStatsCard(theme),
+                    Obx(() => controller.showWatchStatsCard.value
+                        ? _buildWatchStatsCard(theme)
+                        : const SizedBox.shrink()),
                     for (final tab in controller.mineTabs)
                       switch (tab) {
                         .favorite => Obx(_buildFav),

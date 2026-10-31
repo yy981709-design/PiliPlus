@@ -361,6 +361,18 @@ List<SettingsModel> get styleSettings => [
     getSubtitle: () => '当前主题：${Pref.dynamicColor ? '动态取色' : '指定颜色'}',
     getTrailing: _themeTrailing,
   ),
+  SwitchModel(
+    title: '我的页显示观看统计',
+    subtitle: '关闭后隐藏观看统计入口，统计数据仍保留',
+    leading: const Icon(Icons.insights_outlined),
+    setKey: SettingBoxKey.showWatchStatsCard,
+    defaultVal: true,
+    onChanged: (value) {
+      try {
+        Get.find<MineController>().showWatchStatsCard.value = value;
+      } catch (_) {}
+    },
+  ),
   NormalModel(
     onTap: _showMineTabsDialog,
     title: '我的页卡片',

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 
 /// 本地观看统计。
 ///
@@ -34,7 +35,7 @@ class WatchStatsService {
     Duration? total,
     required bool playing,
   }) {
-    if (id.isEmpty) return;
+    if (id.isEmpty || !Pref.recordWatchStats) return;
     if (id != _id) {
       flush();
       _id = id;

@@ -2,6 +2,7 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/stateful_builder.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/accounts/api_type.dart';
@@ -11,6 +12,13 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 
 List<SettingsModel> get privacySettings => [
+  const SwitchModel(
+    title: '记录观看统计',
+    subtitle: '关闭后不再记录观看时长、完播和成就，已有数据保留',
+    leading: Icon(Icons.insights_outlined),
+    setKey: SettingBoxKey.recordWatchStats,
+    defaultVal: true,
+  ),
   NormalModel(
     onTap: (context, setState) => Get.toNamed('/blackListPage'),
     title: '黑名单管理',
