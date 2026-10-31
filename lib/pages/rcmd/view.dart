@@ -83,13 +83,6 @@ class _RcmdPageState extends State<RcmdPage>
                 colorScheme,
                 () => Get.toNamed('/download'),
               ),
-              if (Pref.showWatchStatsCard)
-                _quickAction(
-                  Icons.insights_outlined,
-                  '观看统计',
-                  colorScheme,
-                  () => Get.toNamed('/watchStats'),
-                ),
             ],
           ),
         ],

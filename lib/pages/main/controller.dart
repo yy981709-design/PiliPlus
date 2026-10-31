@@ -10,6 +10,7 @@ import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
+import 'package:PiliPlus/pages/dynamics_create/view.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/mine/view.dart';
 import 'package:PiliPlus/services/account_service.dart';
@@ -229,7 +230,7 @@ class MainController extends GetxController
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
     late final List<NavigationBarType> navigationBars;
     if (navBarSort == null || navBarSort.isEmpty) {
-      navigationBars = NavigationBarType.values;
+      navigationBars = NavigationBarType.defaultBars;
     } else {
       navigationBars = navBarSort
           .map(NavigationBarType.values.elementAt)
@@ -292,6 +293,13 @@ class MainController extends GetxController
     feedBack();
 
     final currentNav = navigationBars[value];
+    if (currentNav == NavigationBarType.publish) {
+      final context = Get.context;
+      if (context != null) {
+        CreateDynPanel.onCreateDyn(context);
+      }
+      return;
+    }
     if (value != selectedIndex.value) {
       selectedIndex.value = value;
       if (mainTabBarView) {
@@ -314,7 +322,7 @@ class MainController extends GetxController
           () => switch (currentNav) {
             .home => homeController.onRefresh(),
             .dynamics => dynamicController.onRefresh(),
-            .mine => null,
+            _ => null,
           },
         );
       } else {

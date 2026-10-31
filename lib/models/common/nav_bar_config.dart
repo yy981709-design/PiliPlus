@@ -3,6 +3,7 @@ import 'package:PiliPlus/models/common/enum_with_label.dart';
 import 'package:PiliPlus/pages/dynamics/view.dart';
 import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/mine/view.dart';
+import 'package:PiliPlus/pages/watch_stats/view.dart';
 import 'package:material_ui/material_ui.dart';
 
 enum NavigationBarType implements EnumWithLabel {
@@ -24,7 +25,27 @@ enum NavigationBarType implements EnumWithLabel {
     Icon(Icons.person),
     MinePage(),
   ),
+  publish(
+    '发布',
+    Icon(Icons.add_circle_outline),
+    Icon(Icons.add_circle),
+    Center(child: Text('发布')),
+  ),
+  data(
+    '数据',
+    Icon(Icons.insights_outlined),
+    Icon(Icons.insights),
+    WatchStatsPage(),
+  ),
   ;
+
+  static const List<NavigationBarType> defaultBars = [
+    home,
+    dynamics,
+    publish,
+    data,
+    mine,
+  ];
 
   @override
   final String label;
