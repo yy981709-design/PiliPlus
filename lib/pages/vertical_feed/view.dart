@@ -287,6 +287,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   VideoController? _videoController;
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<bool>? _playingSub;
+  StreamSubscription<Duration>? _layoutSub;
   bool _loading = false;
   bool _liked = false;
   bool _disliked = false;
@@ -346,6 +347,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   void dispose() {
     _completedSub?.cancel();
     _playingSub?.cancel();
+    _layoutSub?.cancel();
     _transformController.dispose();
     _player?.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
@@ -403,6 +405,14 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       );
       await player.open(Media(mediaUrl), play: play && widget.active);
       _landscapeWork = player.state.width > player.state.height;
+      _layoutSub = player.stream.position.listen((_) {
+        if (!mounted) return;
+        if (player.state.width > 0 && player.state.height > 0) {
+          _layoutSub?.cancel();
+          _layoutSub = null;
+          setState(() {});
+        }
+      });
       _playingSub = player.stream.playing.listen((playing) {
         if (mounted) setState(() => _playing = playing);
       });
@@ -1218,7 +1228,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     final vw = player.state.width.toDouble();
     final vh = player.state.height.toDouble();
     final Widget layer = Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 56),
       child: IgnorePointer(
         child: _DanmakuLayer(
           player: player,
