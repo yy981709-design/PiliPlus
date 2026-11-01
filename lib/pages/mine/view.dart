@@ -295,7 +295,16 @@ class _MediaPageState extends CommonPageState<MinePage>
         _actionTile(
           icon: Icons.notifications_active_outlined,
           title: 'UP更新',
-          onTap: () => Get.toNamed('/dynamics'),
+          onTap: () {
+            final index = _mainController.navigationBars.indexOf(
+              NavigationBarType.dynamics,
+            );
+            if (index >= 0) {
+              _mainController.setIndex(index);
+            } else {
+              Get.toNamed('/dynamics');
+            }
+          },
           primary: primary,
         ),
         _actionTile(

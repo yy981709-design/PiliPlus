@@ -284,7 +284,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _layoutSub;
-  StreamSubscription<Duration>? _statsSub;
+  Timer? _statsTimer;
   bool _loading = false;
   bool _liked = false;
   bool _disliked = false;
@@ -349,7 +349,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     _completedSub?.cancel();
-    _statsSub?.cancel();
+    _statsTimer?.cancel();
     _playingSub?.cancel();
     _layoutSub?.cancel();
     WatchStatsService.instance.onPlaybackStatus(false);
@@ -429,15 +429,18 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           });
         }
       });
-      _statsSub = player.stream.position.listen((position) {
+      _statsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        final p = _player;
+        if (p == null) return;
         WatchStatsService.instance.onPosition(
           id: '${widget.item.bvid}_${widget.item.cid}',
           title: widget.item.title,
           cover: widget.item.cover,
           author: widget.item.author,
-          position: position,
-          total: player.state.duration,
-          playing: _playing,
+          position: p.state.position,
+          total: p.state.duration,
+          playing: _playing && widget.active,
         );
       });
       _playingSub = player.stream.playing.listen((playing) {

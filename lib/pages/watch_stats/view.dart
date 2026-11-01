@@ -66,6 +66,14 @@ class _WatchStatsPageState extends State<WatchStatsPage> {
         titleSpacing: 16,
         title: const Text('观看统计'),
         actions: [
+          IconButton(
+            tooltip: '刷新统计',
+            onPressed: () {
+              _service.flush();
+              setState(() {});
+            },
+            icon: const Icon(Icons.refresh),
+          ),
           if (total > 0)
             IconButton(
               tooltip: '导出统计',

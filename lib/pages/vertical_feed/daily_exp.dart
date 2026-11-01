@@ -157,16 +157,25 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : Column(
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 14, 8, 8),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
                   child: Row(
                     children: [
-                      Text(
+                      const Text(
                         '今日经验',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: '刷新经验状态',
+                        onPressed: _load,
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: Colors.white70,
                         ),
                       ),
                     ],
