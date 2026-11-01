@@ -10,6 +10,7 @@ import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/danmaku.dart';
 import 'package:PiliPlus/http/reply.dart';
+import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models_new/reply/data.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
@@ -603,6 +604,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     );
   }
 
+  String get _viewerText {
+    final n = _viewCount ?? widget.item.view;
+    return n > 0 ? '${_shortCount(n)} 人在看' : '正在看';
+  }
+
   Future<void> _showSpeed() async {
     final rates = [0.75, 1.0, 1.25, 1.5, 2.0];
     final rate = await showDialog<double>(
@@ -634,9 +640,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             ListTile(
               leading: const Icon(Icons.schedule, color: Colors.white70),
               title: const Text('稍后再看', style: TextStyle(color: Colors.white)),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                Get.toNamed('/later');
+                final res = await UserHttp.toViewLater(
+                  bvid: widget.item.bvid,
+                );
+                SmartDialog.showToast(res.isSuccess ? '已加入稍后再看' : '添加失败');
               },
             ),
             ListTile(
@@ -644,7 +653,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               title: const Text('缓存', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                Get.toNamed('/download');
+                _openDetail();
+                SmartDialog.showToast('请在详情页点缓存');
               },
             ),
             ListTile(
@@ -671,7 +681,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               trailing: const Icon(Icons.chevron_right, color: Colors.white38),
               onTap: () {
                 Navigator.pop(context);
-                Get.toNamed('/danmakuBlock');
+                _showDanmakuSettings();
               },
             ),
             ListTile(
@@ -690,6 +700,39 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               onTap: () {
                 Navigator.pop(context);
                 SmartDialog.showToast('反馈入口下一步接入');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDanmakuSettings() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1B1C1E),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              secondary: const Icon(Icons.subtitles, color: Colors.white70),
+              title: const Text('显示弹幕', style: TextStyle(color: Colors.white)),
+              value: _danmakuOn,
+              activeColor: const Color(0xFFFF6699),
+              onChanged: (value) {
+                Navigator.pop(context);
+                setState(() => _danmakuOn = value);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.tune, color: Colors.white70),
+              title: const Text('完整弹幕设置', style: TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                Navigator.pop(context);
+                _openDetail();
               },
             ),
           ],
@@ -762,9 +805,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     size: 16,
                   ),
                   const SizedBox(width: 4),
-                  const Text(
-                    '正在看',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  Text(
+                    _viewerText,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -793,17 +839,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               child: CircularProgressIndicator(color: Colors.white),
             )
           else if (!_playing)
-            const Center(
-              child: Icon(
-                Icons.play_arrow_rounded,
-                size: 72,
-                color: Colors.white70,
-              ),
-            ),
+            const Center(child: _BiliTvPlay()),
           if (!_uiHidden)
             Positioned(
               right: 10,
-              bottom: 120,
+              bottom: 60,
               child: Column(
               children: [
                 _action(
@@ -1673,6 +1713,63 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
         },
         option: DanmakuOptions.get(notFullscreen: false, speed: 1.0),
         size: Size(constraints.maxWidth, constraints.maxHeight),
+      ),
+    );
+  }
+}
+
+class _BiliTvPlay extends StatelessWidget {
+  const _BiliTvPlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 76,
+      height: 64,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            top: 4,
+            left: 20,
+            child: Transform.rotate(
+              angle: -0.5,
+              child: Container(
+                width: 18,
+                height: 2,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 20,
+            child: Transform.rotate(
+              angle: 0.5,
+              child: Container(
+                width: 18,
+                height: 2,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 14,
+            child: Container(
+              width: 68,
+              height: 48,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white70, width: 2),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white70,
+                size: 30,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
