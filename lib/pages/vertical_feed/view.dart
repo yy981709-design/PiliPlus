@@ -912,10 +912,13 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           const ColoredBox(color: Colors.black38),
           if (_videoController != null)
-            Video(
-              controller: _videoController!,
-              fit: BoxFit.contain,
-              controls: (state) => const SizedBox.shrink(),
+            Transform.translate(
+              offset: _landscapeWork ? const Offset(0, -40) : Offset.zero,
+              child: Video(
+                controller: _videoController!,
+                fit: BoxFit.contain,
+                controls: (state) => const SizedBox.shrink(),
+              ),
             ),
           const DecoratedBox(
             decoration: BoxDecoration(

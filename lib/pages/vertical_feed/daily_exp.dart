@@ -47,6 +47,20 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
     }
   }
 
+  Future<(String, int?)?> _resolveVideo() async {
+    if (widget.bvid != null) return (widget.bvid!, widget.aid);
+    final res = await VideoHttp.rcmdVideoListApp(freshIdx: 0);
+    if (res case Success(:final response)) {
+      for (final item in response) {
+        final bvid = item.bvid;
+        if (bvid != null && bvid.isNotEmpty) {
+          return (bvid, item.aid);
+        }
+      }
+    }
+    return null;
+  }
+
   Future<void> _run() async {
     if (_running) return;
     if (!Accounts.main.isLogin) {
@@ -56,42 +70,50 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
     _running = true;
     setState(() {});
     final messages = <String>[];
+    final video = await _resolveVideo();
     if (_enableShare && _status?.share != true) {
-      if (widget.bvid == null) {
-        messages.add('分享任务需从竖屏视频进入');
+      if (video == null) {
+        messages.add('分享失败：没有可用视频');
       } else {
-        final res = await DailyExpHttp.shareVideo(bvid: widget.bvid!);
-        messages.add(res.isSuccess ? '分享任务完成' : '分享失败');
+        final res = await DailyExpHttp.shareVideo(
+          bvid: video.$1,
+          aid: video.$2,
+        );
+        messages.add(
+          res.isSuccess ? '分享任务完成' : '分享失败：${res.toString()}',
+        );
       }
     }
     if (_enableCoin && (_status?.coins ?? 0) < 50) {
-      if (widget.bvid == null) {
-        messages.add('投币任务需从竖屏视频进入');
-        return _finish(messages);
-      }
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('投币任务'),
-          content: const Text('是否投 1 个硬币到当前视频？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('投 1 币'),
-            ),
-          ],
-        ),
-      );
-      if (ok == true) {
-        final res = await VideoHttp.coinVideo(
-          bvid: widget.bvid!,
-          multiply: 1,
+      if (video == null) {
+        messages.add('投币失败：没有可用视频');
+      } else {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('投币任务'),
+            content: const Text('是否投 1 个硬币到当前视频？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('投 1 币'),
+              ),
+            ],
+          ),
         );
-        messages.add(res.isSuccess ? '投币任务完成' : '投币失败');
+        if (ok == true) {
+          final res = await VideoHttp.coinVideo(
+            bvid: video.$1,
+            multiply: 1,
+          );
+          messages.add(
+            res.isSuccess ? '投币任务完成' : '投币失败：${res.toString()}',
+          );
+        }
       }
     }
     if (_enableWatch && _status?.watch != true) {
@@ -112,7 +134,14 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
 
   Future<void> _claimVip() async {
     final res = await UserHttp.vipExpAdd();
-    SmartDialog.showToast(res.isSuccess ? '大会员经验领取成功' : '领取失败');
+    if (res.isSuccess) {
+      SmartDialog.showToast('大会员经验领取成功');
+      await _load();
+    } else {
+      SmartDialog.showToast(
+        '领取失败：${res.toString()}',
+      );
+    }
   }
 
   @override

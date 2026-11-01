@@ -32,10 +32,15 @@ abstract final class DailyExpHttp {
 
   static Future<LoadingState<void>> shareVideo({
     required String bvid,
+    required int? aid,
   }) async {
     final res = await Request().post(
       Api.shareVideo,
-      data: {'bvid': bvid, 'csrf': Accounts.main.csrf},
+      data: {
+        'bvid': bvid,
+        if (aid != null) 'aid': aid,
+        'csrf': Accounts.main.csrf,
+      },
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
     if (res.data['code'] == 0) {
