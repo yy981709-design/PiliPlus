@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
@@ -235,6 +236,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   Player? _player;
   VideoController? _videoController;
   StreamSubscription<bool>? _completedSub;
+  StreamSubscription<int>? _widthSub;
+  StreamSubscription<int>? _heightSub;
   bool _loading = false;
   bool _liked = false;
   bool _disliked = false;
@@ -285,6 +288,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   @override
   void dispose() {
     _completedSub?.cancel();
+    _widthSub?.cancel();
+    _heightSub?.cancel();
     _player?.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -330,6 +335,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       );
       await player.open(Media(mediaUrl), play: play && widget.active);
       _landscapeWork = player.state.width > player.state.height;
+      _widthSub = player.stream.width.listen((_) {
+        if (mounted) setState(() {});
+      });
+      _heightSub = player.stream.height.listen((_) {
+        if (mounted) setState(() {});
+      });
       _completedSub = player.stream.completed.listen((completed) {
         if (completed && mounted && widget.active) widget.onCompleted();
       });
@@ -525,14 +536,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             ),
           ),
           if (_danmakuOn && _player != null && item.cid > 0)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: _DanmakuLayer(
-                  player: _player!,
-                  cid: item.cid,
-                ),
-              ),
-            ),
+            _buildDanmakuLayer(item, size),
           if (!_uiHidden)
             Positioned(
               left: 14,
@@ -608,8 +612,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               right: 12,
               bottom: 8,
               child: Container(
-                height: 30,
-                padding: const EdgeInsets.only(left: 10, right: 2),
+                height: 40,
+                padding: const EdgeInsets.only(left: 12, right: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(15),
@@ -639,19 +643,17 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: '详情页',
-                      visualDensity: VisualDensity.compact,
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(26, 26),
-                        padding: EdgeInsets.zero,
+                    TextButton(
+                      onPressed: _openDetail,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        minimumSize: const Size(0, 30),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      onPressed: _openDetail,
-                      icon: const Icon(
-                        Icons.info_outline,
-                        color: Colors.white70,
-                        size: 17,
+                      child: const Text(
+                        '详情页',
+                        style: TextStyle(fontSize: 10),
                       ),
                     ),
                     IconButton(
@@ -677,9 +679,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             ),
           if (!_uiHidden && _player != null)
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
+              left: 12,
+              right: 12,
+              bottom: 50,
               child: StreamBuilder<Duration>(
                 stream: _player!.stream.position,
                 builder: (context, snapshot) {
@@ -807,7 +809,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white70,
-                              fontSize: 12,
+                              fontSize: 13,
                             ),
                           ),
                         ),
@@ -835,6 +837,34 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDanmakuLayer(_VerticalItem item, Size screen) {
+    final player = _player!;
+    final vw = player.state.width.toDouble();
+    final vh = player.state.height.toDouble();
+    final Widget layer = Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: IgnorePointer(
+        child: _DanmakuLayer(
+          player: player,
+          cid: item.cid,
+        ),
+      ),
+    );
+    if (vw <= 0 || vh <= 0) {
+      return Positioned.fill(child: layer);
+    }
+    final scale = math.min(screen.width / vw, screen.height / vh);
+    final width = vw * scale;
+    final height = vh * scale;
+    return Positioned(
+      left: (screen.width - width) / 2,
+      top: (screen.height - height) / 2,
+      width: width,
+      height: height,
+      child: layer,
     );
   }
 
@@ -1326,18 +1356,19 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    return DanmakuScreen<DanmakuExtra>(
-      createdController: (controller) {
-        _controller = controller;
-        if (widget.player.state.playing) {
-          controller.resume();
-        } else {
-          controller.pause();
-        }
-      },
-      option: DanmakuOptions.get(notFullscreen: false, speed: 1.0),
-      size: size,
+    return LayoutBuilder(
+      builder: (context, constraints) => DanmakuScreen<DanmakuExtra>(
+        createdController: (controller) {
+          _controller = controller;
+          if (widget.player.state.playing) {
+            controller.resume();
+          } else {
+            controller.pause();
+          }
+        },
+        option: DanmakuOptions.get(notFullscreen: false, speed: 1.0),
+        size: Size(constraints.maxWidth, constraints.maxHeight),
+      ),
     );
   }
 }
