@@ -6,6 +6,8 @@ import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
 import 'package:PiliPlus/grpc/dm.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
+import 'package:PiliPlus/pages/emote/view.dart';
+import 'package:PiliPlus/models_new/emote/emote.dart';
 import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/danmaku.dart';
@@ -13,6 +15,7 @@ import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/models_new/reply/content.dart';
 import 'package:PiliPlus/models_new/reply/data.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -1612,6 +1615,7 @@ class _VerticalCommentsState extends State<_VerticalComments> {
   bool _loading = false;
   bool _end = false;
   bool _failed = false;
+  bool _hot = true;
 
   @override
   void initState() {
@@ -1632,6 +1636,35 @@ class _VerticalCommentsState extends State<_VerticalComments> {
     super.dispose();
   }
 
+  void _reload() {
+    _page = 1;
+    _replies.clear();
+    _end = false;
+    _failed = false;
+    _loadMore();
+  }
+
+  void _toggleSort() {
+    setState(() => _hot = !_hot);
+    _reload();
+  }
+
+  Future<void> _showEmoji() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF17181A),
+      builder: (context) => SizedBox(
+        height: 300,
+        child: EmotePanel(
+          onChoose: (Emote emote, double? width, double? height) {
+            _inputController.text += emote.text ?? '';
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadMore() async {
     if (_loading || _end) return;
     _loading = true;
@@ -1641,7 +1674,7 @@ class _VerticalCommentsState extends State<_VerticalComments> {
       nextOffset: '',
       type: 1,
       page: _page,
-      sort: 1,
+      sort: _hot ? 1 : 2,
     );
     if (!mounted) return;
     if (res case Success(:final response)) {
@@ -1656,6 +1689,125 @@ class _VerticalCommentsState extends State<_VerticalComments> {
     }
     _loading = false;
     if (mounted) setState(() {});
+  }
+
+  String? _emoteUrl(dynamic data) {
+    if (data is Map) {
+      for (final key in const ['url', 'gif_url', 'webp_url']) {
+        final value = data[key];
+        if (value is String && value.isNotEmpty) return value;
+      }
+    }
+    return null;
+  }
+
+  Widget _buildMessage(ReplyContent? content) {
+    final text = content?.message ?? '';
+    final emotes = content?.emotes;
+    if (text.isEmpty) return const Text('');
+    if (emotes == null || emotes.isEmpty) {
+      return Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+      );
+    }
+    final keys = emotes.keys.toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    final pattern = RegExp(keys.map(RegExp.escape).join('|'));
+    final spans = <InlineSpan>[];
+    var last = 0;
+    for (final match in pattern.allMatches(text)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: text.substring(last, match.start)));
+      }
+      final key = match.group(0)!;
+      final url = _emoteUrl(emotes[key]);
+      spans.add(
+        url == null
+            ? TextSpan(text: key)
+            : WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Image.network(
+                  url,
+                  width: 20,
+                  height: 20,
+                  errorBuilder: (_, _, _) => Text(key),
+                ),
+              ),
+      );
+      last = match.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+    return Text.rich(
+      TextSpan(children: spans),
+      style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+    );
+  }
+
+  Widget _buildPictures(ReplyContent? content) {
+    final pictures = content?.pictures;
+    if (pictures == null || pictures.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final pic in pictures.take(3))
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.network(
+                pic.imgSrc ?? '',
+                width: 90,
+                height: 90,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplies(ReplyItemModel reply) {
+    final replies = reply.replies;
+    if (replies == null || replies.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final sub in replies.take(3))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: '${sub.member?.uname ?? '匿名'}：',
+                      style: const TextStyle(color: Colors.white38),
+                    ),
+                    TextSpan(text: sub.content?.message ?? ''),
+                  ],
+                ),
+              ),
+            ),
+          if (reply.count != null && reply.count! > 3)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '共 ${reply.count} 条回复',
+                style: const TextStyle(color: Colors.white38, fontSize: 10),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Color _levelColor(int level) {
@@ -1720,6 +1872,13 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                   ),
                 ),
                 const Spacer(),
+                TextButton(
+                  onPressed: _toggleSort,
+                  child: Text(
+                    _hot ? '最热' : '最新',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close, color: Colors.white70),
@@ -1816,14 +1975,9 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  reply.content?.message ?? '',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    height: 1.4,
-                                  ),
-                                ),
+                                _buildMessage(reply.content),
+                                _buildPictures(reply.content),
+                                _buildReplies(reply),
                                 if ((reply.like ?? 0) > 0) ...[
                                   const SizedBox(height: 4),
                                   Text(
@@ -1875,6 +2029,14 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                           vertical: 10,
                         ),
                       ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '表情',
+                    onPressed: _showEmoji,
+                    icon: const Icon(
+                      Icons.emoji_emotions_outlined,
+                      color: Colors.white70,
                     ),
                   ),
                   IconButton(
