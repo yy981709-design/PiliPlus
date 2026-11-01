@@ -603,25 +603,13 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
 
   void _toggleScreen() {
     if (_landscapeWork) {
-      if (_landscape) {
-        _landscape = false;
-        SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      } else {
-        _landscape = true;
-        SystemChrome.setPreferredOrientations(const [
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      }
-      setState(() {});
-    } else {
-      setState(() => _uiHidden = !_uiHidden);
-      SystemChrome.setEnabledSystemUIMode(
-        _uiHidden ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
-      );
+      _openDetail();
+      return;
     }
+    setState(() => _uiHidden = !_uiHidden);
+    SystemChrome.setEnabledSystemUIMode(
+      _uiHidden ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
   }
 
   Future<void> _follow() async {
@@ -976,7 +964,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           if (!_uiHidden)
             Positioned(
               left: 12,
-              right: 12,
+              right: 16,
               bottom: 8,
               child: Row(
                 children: [
@@ -1011,13 +999,13 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   InkWell(
                     onTap: () => setState(() => _danmakuOn = !_danmakuOn),
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
-                      width: 32,
-                      height: 32,
+                      width: 34,
+                      height: 34,
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.45),
                         shape: BoxShape.circle,
@@ -1035,12 +1023,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   IconButton(
                     tooltip: '详情页',
                     visualDensity: VisualDensity.compact,
                     style: IconButton.styleFrom(
-                      minimumSize: const Size(26, 26),
+                      minimumSize: const Size(30, 30),
                       padding: EdgeInsets.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -1048,15 +1036,15 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     icon: const Icon(
                       Icons.info_outline,
                       color: Colors.white70,
-                      size: 17,
+                      size: 19,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   IconButton(
                     tooltip: _landscapeWork ? '横屏模式' : '隐藏界面',
                     visualDensity: VisualDensity.compact,
                     style: IconButton.styleFrom(
-                      minimumSize: const Size(26, 26),
+                      minimumSize: const Size(30, 30),
                       padding: EdgeInsets.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -1066,7 +1054,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                           ? Icons.screen_rotation
                           : Icons.fullscreen,
                       color: Colors.white70,
-                      size: 18,
+                      size: 20,
                     ),
                   ),
                 ],
