@@ -17,6 +17,7 @@ import 'package:PiliPlus/models_new/reply/data.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
+import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/utils/danmaku_utils.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/home/rcmd/result.dart';
@@ -283,6 +284,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _layoutSub;
+  StreamSubscription<Duration>? _statsSub;
   bool _loading = false;
   bool _liked = false;
   bool _disliked = false;
@@ -347,8 +349,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     _completedSub?.cancel();
+    _statsSub?.cancel();
     _playingSub?.cancel();
     _layoutSub?.cancel();
+    WatchStatsService.instance.onPlaybackStatus(false);
+    WatchStatsService.instance.flush();
     _player?.dispose();
     super.dispose();
   }
@@ -398,6 +403,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
 
   Future<void> _initPlayer({bool play = true}) async {
     if (_loading || _player != null) return;
+    _playing = play && widget.active;
     _loading = true;
     try {
       final mediaUrl = await (widget.mediaFuture ?? _resolveVerticalMedia(widget.item));
@@ -423,7 +429,19 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           });
         }
       });
+      _statsSub = player.stream.position.listen((position) {
+        WatchStatsService.instance.onPosition(
+          id: '${widget.item.bvid}_${widget.item.cid}',
+          title: widget.item.title,
+          cover: widget.item.cover,
+          author: widget.item.author,
+          position: position,
+          total: player.state.duration,
+          playing: _playing,
+        );
+      });
       _playingSub = player.stream.playing.listen((playing) {
+        WatchStatsService.instance.onPlaybackStatus(playing);
         if (mounted) setState(() => _playing = playing);
       });
       _completedSub = player.stream.completed.listen((completed) {
