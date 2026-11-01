@@ -1003,7 +1003,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             Positioned(
               left: 16,
               right: 84,
-              bottom: 76,
+              bottom: 44,
               child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
