@@ -292,7 +292,12 @@ class _MediaPageState extends CommonPageState<MinePage>
             primary: primary,
           ),
         ),
-        const SizedBox.shrink(),
+        _actionTile(
+          icon: Icons.notifications_active_outlined,
+          title: 'UP更新',
+          onTap: () => Get.toNamed('/dynamics'),
+          primary: primary,
+        ),
         _actionTile(
           icon: Icons.workspace_premium_outlined,
           title: '今日经验',

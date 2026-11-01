@@ -8,6 +8,7 @@ import 'package:PiliPlus/pages/fav/cheese/controller.dart';
 import 'package:PiliPlus/pages/fav/topic/controller.dart';
 import 'package:PiliPlus/pages/fav/video/controller.dart';
 import 'package:PiliPlus/pages/fav_folder_sort/view.dart';
+import 'package:PiliPlus/pages/fav/health.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -56,6 +57,23 @@ class _FavPageState extends State<FavPage> with SingleTickerProviderStateMixin {
       appBar: AppBar(
         title: const Text('我的收藏'),
         actions: [
+          Obx(
+            () => _showVideoFavMenu.value
+                ? IconButton(
+                    onPressed: () {
+                      if (_favController.loadingState.value case Success(
+                        :final response,
+                      )) {
+                        if (response != null && response.isNotEmpty) {
+                          showFavHealthSheet(context, response);
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.health_and_safety_outlined),
+                    tooltip: '收藏夹体检',
+                  )
+                : const SizedBox.shrink(),
+          ),
           Obx(
             () => _showVideoFavMenu.value
                 ? IconButton(
