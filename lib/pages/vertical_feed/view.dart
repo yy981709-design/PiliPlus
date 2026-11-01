@@ -339,6 +339,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       _player?.pause();
       if (_landscape) {
         _landscape = false;
+        _uiHidden = false;
         SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
@@ -415,7 +416,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   }
 
   void _onViewerScale(double scale) {
-    _pointerMoved = true;
+    if ((scale - 1).abs() > 0.02) {
+      _pointerMoved = true;
+    }
     final zoomed = scale > 1.01;
     if (zoomed != _zoomed) {
       setState(() => _zoomed = zoomed);
@@ -911,11 +914,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               boundaryMargin: const EdgeInsets.all(80),
               childKey: _videoKey,
               scaleGestureRecognizer: _scaleGestureRecognizer,
-              onPointerDown: _onViewerPointerDown,
-              onPointerUp: _onViewerPointerUp,
-              onPointerCancel: (_) {
-                _pointerDown = null;
-              },
+              onPointerDown: (_) {},
+              onPointerUp: (_) {},
+              onPointerCancel: (_) {},
               onPanStart: (_) {},
               onPanUpdate: (_) {},
               onPanEnd: (_) {},
@@ -1356,9 +1357,14 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 color: Colors.white70,
               ),
             const Spacer(),
-            Container(
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
-              color: Colors.black45,
+            StreamBuilder<Duration>(
+              stream: player?.stream.position,
+              builder: (context, snapshot) {
+                final position =
+                    snapshot.data ?? player?.state.position ?? Duration.zero;
+                return Container(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+                  color: Colors.black45,
               child: Row(
                 children: [
                   IconButton(
@@ -1369,18 +1375,16 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     ),
                   ),
                   Text(
-                    _formatLandscapeTime(
-                      player?.state.position ?? Duration.zero,
-                    ),
+                    _formatLandscapeTime(position),
                     style: const TextStyle(color: Colors.white70, fontSize: 11),
                   ),
                   Expanded(
                     child: Slider(
                       value: duration.inMilliseconds > 0
-                          ? (player!.state.position.inMilliseconds /
-                                    duration.inMilliseconds)
+                          ? (position.inMilliseconds / duration.inMilliseconds)
                                 .clamp(0.0, 1.0)
-                          : 0,
+                                .toDouble()
+                          : 0.0,
                       onChanged: (value) {
                         player?.seek(
                           Duration(
@@ -1397,6 +1401,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   ),
                 ],
               ),
+                );
+              },
             ),
           ],
         ),
