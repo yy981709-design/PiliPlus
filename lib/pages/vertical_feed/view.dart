@@ -960,8 +960,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           if (!_uiHidden)
             Positioned(
-              left: 10,
-              right: 10,
+              left: 12,
+              right: 12,
               bottom: 8,
               child: Row(
                 children: [
@@ -996,7 +996,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 10),
                   InkWell(
                     onTap: () => setState(() => _danmakuOn = !_danmakuOn),
                     borderRadius: BorderRadius.circular(16),
@@ -1020,6 +1020,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   IconButton(
                     tooltip: '详情页',
                     visualDensity: VisualDensity.compact,
@@ -1035,6 +1036,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       size: 17,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   IconButton(
                     tooltip: _landscapeWork ? '横屏模式' : '隐藏界面',
                     visualDensity: VisualDensity.compact,
