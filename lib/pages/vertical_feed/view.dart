@@ -381,7 +381,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     try {
       final rel = await VideoHttp.videoRelation(bvid: widget.item.bvid);
       if (rel case Success(:final response)) {
-        _liked = response.like ?? false;
         _disliked = response.dislike ?? false;
         _followed = response.attention ?? false;
         _favorited = response.favorite ?? false;
@@ -395,6 +394,13 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     _pointerDown = event.position;
     _pointerDownAt = DateTime.now();
     _pointerMoved = false;
+  }
+
+  void _onViewerPointerMove(PointerMoveEvent event) {
+    final down = _pointerDown;
+    if (down != null && (event.position - down).distance > 12) {
+      _pointerMoved = true;
+    }
   }
 
   void _onViewerPointerUp(PointerUpEvent event) {
@@ -525,13 +531,20 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       });
       SmartDialog.showToast(response);
     } else if (res case Error(:final errMsg)) {
-      try {
-        final rel = await VideoHttp.videoRelation(bvid: widget.item.bvid);
-        if (rel case Success(:final response)) {
-          setState(() => _liked = response.like ?? false);
-        }
-      } catch (_) {}
-      SmartDialog.showToast(errMsg ?? '操作失败');
+      final msg = errMsg ?? '';
+      if (msg.contains('已点赞')) {
+        setState(() => _liked = true);
+      } else if (msg.contains('未点赞')) {
+        setState(() => _liked = false);
+      } else {
+        try {
+          final rel = await VideoHttp.videoRelation(bvid: widget.item.bvid);
+          if (rel case Success(:final response)) {
+            setState(() => _liked = response.like ?? false);
+          }
+        } catch (_) {}
+      }
+      SmartDialog.showToast(msg.isEmpty ? '操作失败' : msg);
     }
   }
 
@@ -633,9 +646,32 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     }
   }
 
+  void _enterLandscape() {
+    _landscape = true;
+    _uiHidden = true;
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    setState(() {});
+  }
+
+  void _exitLandscape() {
+    _landscape = false;
+    _uiHidden = false;
+    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    setState(() {});
+  }
+
   void _toggleScreen() {
     if (_landscapeWork) {
-      _openDetail();
+      if (_landscape) {
+        _exitLandscape();
+      } else {
+        _enterLandscape();
+      }
       return;
     }
     setState(() => _uiHidden = !_uiHidden);
@@ -852,8 +888,16 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           const ColoredBox(color: Colors.black38),
           if (_videoController != null)
-            MouseInteractiveViewer(
-              transformationController: _transformController,
+            Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: _onViewerPointerDown,
+              onPointerMove: _onViewerPointerMove,
+              onPointerUp: _onViewerPointerUp,
+              onPointerCancel: (_) {
+                _pointerDown = null;
+              },
+              child: MouseInteractiveViewer(
+                transformationController: _transformController,
               minScale: 1,
               maxScale: 3,
               panEnabled: _zoomed,
@@ -879,6 +923,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 fit: BoxFit.contain,
                 controls: (state) => const SizedBox.shrink(),
               ),
+            ),
             ),
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -939,6 +984,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 ],
               ),
             ),
+          if (_landscape) _buildLandscapeControls(item),
           if (!widget.active || _loading)
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
@@ -1263,6 +1309,105 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         ),
       ),
     );
+  }
+
+  Widget _buildLandscapeControls(_VerticalItem item) {
+    final player = _player;
+    final duration = player?.state.duration ?? Duration.zero;
+    return Positioned.fill(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _danmakuOn = !_danmakuOn),
+                  icon: Icon(
+                    _danmakuOn ? Icons.subtitles : Icons.subtitles_off,
+                    color: Colors.white,
+                  ),
+                ),
+                IconButton(
+                  onPressed: _exitLandscape,
+                  icon: const Icon(Icons.fullscreen_exit, color: Colors.white),
+                ),
+              ],
+            ),
+            const Spacer(),
+            if (!_playing)
+              const Icon(
+                Icons.play_arrow_rounded,
+                size: 64,
+                color: Colors.white70,
+              ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+              color: Colors.black45,
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: _togglePlay,
+                    icon: Icon(
+                      _playing ? Icons.pause : Icons.play_arrow,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    _formatLandscapeTime(
+                      player?.state.position ?? Duration.zero,
+                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: duration.inMilliseconds > 0
+                          ? (player!.state.position.inMilliseconds /
+                                    duration.inMilliseconds)
+                                .clamp(0.0, 1.0)
+                          : 0,
+                      onChanged: (value) {
+                        player?.seek(
+                          Duration(
+                            milliseconds:
+                                (duration.inMilliseconds * value).round(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Text(
+                    _formatLandscapeTime(duration),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatLandscapeTime(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return d.inHours > 0
+        ? '${d.inHours}:$minutes:$seconds'
+        : '$minutes:$seconds';
   }
 
   Widget _action({
