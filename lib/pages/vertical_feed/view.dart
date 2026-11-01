@@ -293,6 +293,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _landscapeWork = false;
   bool _uiHidden = false;
   bool _danmakuOn = true;
+  bool _autoNext = true;
   int? _likeCount;
   int? _commentCount;
   int? _favoriteCount;
@@ -366,6 +367,15 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         }
       }
     } catch (_) {}
+    try {
+      final rel = await VideoHttp.videoRelation(bvid: widget.item.bvid);
+      if (rel case Success(:final response)) {
+        _liked = response.like ?? false;
+        _disliked = response.dislike ?? false;
+        _followed = response.attention ?? false;
+        if (mounted) setState(() {});
+      }
+    } catch (_) {}
     _statsLoading = false;
   }
 
@@ -390,7 +400,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         if (mounted) setState(() => _playing = playing);
       });
       _completedSub = player.stream.completed.listen((completed) {
-        if (completed && mounted && widget.active) widget.onCompleted();
+        if (completed && mounted && widget.active && _autoNext) {
+          widget.onCompleted();
+        }
       });
       if (!mounted) {
         player.dispose();
@@ -591,6 +603,101 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     );
   }
 
+  Future<void> _showSpeed() async {
+    final rates = [0.75, 1.0, 1.25, 1.5, 2.0];
+    final rate = await showDialog<double>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('倍速'),
+        children: [
+          for (final r in rates)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, r),
+              child: Text(r == 1.0 ? '1.0x' : '${r}x'),
+            ),
+        ],
+      ),
+    );
+    if (rate != null) {
+      await _player?.setRate(rate);
+    }
+  }
+
+  void _showMoreMenu() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1B1C1E),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.schedule, color: Colors.white70),
+              title: const Text('稍后再看', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Get.toNamed('/later');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined, color: Colors.white70),
+              title: const Text('缓存', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Get.toNamed('/download');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.speed, color: Colors.white70),
+              title: const Text('倍速', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                _showSpeed();
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.swipe_up, color: Colors.white70),
+              title: const Text('自动上滑', style: TextStyle(color: Colors.white)),
+              value: _autoNext,
+              activeColor: const Color(0xFFFF6699),
+              onChanged: (value) {
+                Navigator.pop(context);
+                setState(() => _autoNext = value);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.subtitles, color: Colors.white70),
+              title: const Text('弹幕设置', style: TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                Navigator.pop(context);
+                Get.toNamed('/danmakuBlock');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report_outlined, color: Colors.white70),
+              title: const Text('举报', style: TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                Navigator.pop(context);
+                SmartDialog.showToast('举报入口下一步接入');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.feedback_outlined, color: Colors.white70),
+              title: const Text('反馈建议', style: TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                Navigator.pop(context);
+                SmartDialog.showToast('反馈入口下一步接入');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _togglePlay() {
     final player = _player;
     if (player == null) {
@@ -638,25 +745,47 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             _buildDanmakuLayer(item, size),
           if (!_uiHidden)
             Positioned(
-              left: 14,
-              top: MediaQuery.paddingOf(context).top + 8,
-            child: IconButton(
-              onPressed: () => Get.back(),
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+              left: 4,
+              top: MediaQuery.paddingOf(context).top + 12,
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Get.back(),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Icon(
+                    Icons.people_outline,
+                    color: Colors.white70,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    '正在看',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
-          ),
           if (!_uiHidden)
             Positioned(
-              right: 10,
-              top: MediaQuery.paddingOf(context).top + 8,
-              child: IconButton(
-                tooltip: _danmakuOn ? '关闭弹幕' : '开启弹幕',
-                onPressed: () => setState(() => _danmakuOn = !_danmakuOn),
-                icon: Icon(
-                  _danmakuOn ? Icons.subtitles : Icons.subtitles_off,
-                  color: Colors.white,
-                  size: 24,
-                ),
+              right: 4,
+              top: MediaQuery.paddingOf(context).top + 12,
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: '搜索',
+                    onPressed: () => Get.toNamed('/search'),
+                    icon: const Icon(Icons.search, color: Colors.white),
+                  ),
+                  IconButton(
+                    tooltip: '更多',
+                    onPressed: _showMoreMenu,
+                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                  ),
+                ],
               ),
             ),
           if (!widget.active || _loading)
@@ -721,22 +850,22 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           if (!_uiHidden)
             Positioned(
-              left: 12,
-              right: 12,
+              left: 10,
+              right: 10,
               bottom: 8,
-              child: Container(
-                height: 40,
-                padding: const EdgeInsets.only(left: 12, right: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: _sendDanmaku,
-                        borderRadius: BorderRadius.circular(15),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: _sendDanmaku,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         child: const Row(
                           children: [
                             Icon(
@@ -756,38 +885,62 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                         ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: _openDetail,
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        minimumSize: const Size(0, 30),
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () => setState(() => _danmakuOn = !_danmakuOn),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _danmakuOn
+                              ? const Color(0xFFFF6699)
+                              : Colors.white24,
+                        ),
                       ),
-                      child: const Text(
-                        '详情页',
-                        style: TextStyle(fontSize: 10),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: _landscapeWork ? '横屏' : '隐藏界面',
-                      visualDensity: VisualDensity.compact,
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(26, 26),
-                        padding: EdgeInsets.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      onPressed: _toggleScreen,
-                      icon: Icon(
-                        _landscapeWork
-                            ? Icons.screen_rotation
-                            : Icons.fullscreen,
-                        color: Colors.white70,
-                        size: 18,
+                      child: const Center(
+                        child: Text(
+                          '弹',
+                          style: TextStyle(color: Colors.white, fontSize: 11),
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  TextButton(
+                    onPressed: _openDetail,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      minimumSize: const Size(0, 30),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      '详情页',
+                      style: TextStyle(fontSize: 10),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: _landscapeWork ? '横屏模式' : '隐藏界面',
+                    visualDensity: VisualDensity.compact,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(26, 26),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: _toggleScreen,
+                    icon: Icon(
+                      _landscapeWork
+                          ? Icons.screen_rotation
+                          : Icons.fullscreen,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                  ),
+                ],
               ),
             ),
           if (!_uiHidden && _player != null)
@@ -1147,6 +1300,18 @@ class _VerticalCommentsState extends State<_VerticalComments> {
     if (mounted) setState(() {});
   }
 
+  Color _levelColor(int level) {
+    return switch (level) {
+      0 => const Color(0xFFC0C0C0),
+      1 => const Color(0xFF95DDB3),
+      2 => const Color(0xFF7BC6FF),
+      3 => const Color(0xFF5D9CEC),
+      4 => const Color(0xFFFFB37C),
+      5 => const Color(0xFFFF8C00),
+      _ => const Color(0xFFFF4D4F),
+    };
+  }
+
   Future<void> _send() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _sending) return;
@@ -1278,7 +1443,7 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                                           vertical: 1,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF00AEEC),
+                                          color: _levelColor(level),
                                           borderRadius: BorderRadius.circular(3),
                                         ),
                                         child: Text(
