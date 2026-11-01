@@ -46,6 +46,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
   final Map<String, Future<String?>> _mediaFutures = {};
   bool _loading = false;
   bool _loaded = false;
+  bool _hasMore = true;
   int _page = 0;
   int _index = 0;
 
@@ -83,10 +84,13 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
   }
 
   Future<void> _fetchMore() async {
-    if (_loading) return;
+    if (_loading || !_hasMore) return;
+    final oldLength = _items.length;
+    final wasAtEnd = _index >= oldLength;
     _loading = true;
     try {
-      for (var i = 0; i < 3; i++) {
+      var added = 0;
+      for (var attempt = 0; attempt < 8; attempt++) {
         final res = await VideoHttp.rcmdVideoListApp(freshIdx: _page);
         _page++;
         if (res case Success(:final response)) {
@@ -112,16 +116,26 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
                 pubdate: item.pubdate ?? 0,
               ),
             );
+            added++;
           }
         }
-        if (_items.length >= 10) break;
+        if (added >= 5) break;
       }
     } catch (_) {}
     _loading = false;
     _loaded = true;
+    if (added == 0) _hasMore = false;
     if (mounted) {
       setState(() {});
       _preloadAround();
+      if (wasAtEnd && _items.length > oldLength) {
+        _index = oldLength;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(oldLength);
+          }
+        });
+      }
     }
   }
 
@@ -159,29 +173,63 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
             )
           : PageView.builder(
               controller: _pageController,
+              physics: const ClampingScrollPhysics(),
               scrollDirection: Axis.vertical,
-              itemCount: _items.length,
+              itemCount: _items.length + (_hasMore ? 1 : 0),
               onPageChanged: (index) {
+                if (index >= _items.length) {
+                  _fetchMore();
+                  return;
+                }
                 setState(() => _index = index);
                 _preloadAround();
                 if (index >= _items.length - 2) _fetchMore();
               },
               itemBuilder: (context, index) {
+                if (index >= _items.length) {
+                  return const _VerticalLoadingPage();
+                }
                 final item = _items[index];
                 final key = '${item.bvid}_${item.cid}';
-                return _VerticalPlayerItem(
-                  key: ValueKey(key),
-                  item: item,
-                  active: index == _index,
-                  preload: index == _index + 1,
-                  mediaFuture: _mediaFutures.putIfAbsent(
-                    key,
-                    () => _resolveVerticalMedia(item),
+                return AnimatedScale(
+                  scale: index == _index ? 1.0 : 0.94,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  child: _VerticalPlayerItem(
+                    key: ValueKey(key),
+                    item: item,
+                    active: index == _index,
+                    preload: index == _index + 1,
+                    mediaFuture: _mediaFutures.putIfAbsent(
+                      key,
+                      () => _resolveVerticalMedia(item),
+                    ),
+                    onCompleted: _next,
                   ),
-                  onCompleted: _next,
                 );
               },
             ),
+    );
+  }
+}
+
+class _VerticalLoadingPage extends StatelessWidget {
+  const _VerticalLoadingPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Colors.white70),
+            SizedBox(height: 12),
+            Text('加载更多...', style: TextStyle(color: Colors.white54)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -236,6 +284,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   Player? _player;
   VideoController? _videoController;
   StreamSubscription<bool>? _completedSub;
+  StreamSubscription<bool>? _playingSub;
   bool _loading = false;
   bool _liked = false;
   bool _disliked = false;
@@ -249,6 +298,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   int? _favoriteCount;
   int? _shareCount;
   int? _viewCount;
+  int? _coinCount;
+  bool _likeLoading = false;
+  bool _playing = true;
   String? _avatar;
   bool _followed = false;
   bool _followLoading = false;
@@ -268,6 +320,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   void didUpdateWidget(covariant _VerticalPlayerItem oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.active && !oldWidget.active) {
+      _loadStats();
       if (_player == null) {
         _initPlayer();
       } else {
@@ -286,6 +339,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   @override
   void dispose() {
     _completedSub?.cancel();
+    _playingSub?.cancel();
     _player?.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -306,6 +360,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             _commentCount = stat.reply;
             _favoriteCount = stat.favorite;
             _shareCount = stat.share;
+            _coinCount = stat.coin?.toInt();
             _avatar = response.owner?.face;
           });
         }
@@ -331,6 +386,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       );
       await player.open(Media(mediaUrl), play: play && widget.active);
       _landscapeWork = player.state.width > player.state.height;
+      _playingSub = player.stream.playing.listen((playing) {
+        if (mounted) setState(() => _playing = playing);
+      });
       _completedSub = player.stream.completed.listen((completed) {
         if (completed && mounted && widget.active) widget.onCompleted();
       });
@@ -390,15 +448,66 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   }
 
   Future<void> _toggleLike() async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    if (_likeLoading) return;
+    _likeLoading = true;
     final res = await VideoHttp.likeVideo(
       bvid: widget.item.bvid,
       type: _liked,
     );
+    _likeLoading = false;
     if (res case Success(:final response)) {
-      setState(() => _liked = !_liked);
+      setState(() {
+        _liked = !_liked;
+        _likeCount = (_likeCount ?? widget.item.like) + (_liked ? 1 : -1);
+      });
       SmartDialog.showToast(response);
+    } else if (res case Error(:final message)) {
+      SmartDialog.showToast(message);
     } else {
       SmartDialog.showToast('点赞失败');
+    }
+  }
+
+  Future<void> _showCoin() async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    final count = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('投币'),
+        content: const Text('选择投币数量'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 1),
+            child: const Text('1 币'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 2),
+            child: const Text('2 币'),
+          ),
+        ],
+      ),
+    );
+    if (count == null) return;
+    final res = await VideoHttp.coinVideo(
+      bvid: widget.item.bvid,
+      multiply: count,
+    );
+    if (res.isSuccess) {
+      setState(() {
+        _coinCount = (_coinCount ?? 0) + count;
+      });
+      SmartDialog.showToast('投币成功');
+    } else if (res case Error(:final message)) {
+      SmartDialog.showToast(message);
+    } else {
+      SmartDialog.showToast('投币失败');
     }
   }
 
@@ -553,6 +662,14 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           if (!widget.active || _loading)
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
+            )
+          else if (!_playing)
+            const Center(
+              child: Icon(
+                Icons.play_arrow_rounded,
+                size: 72,
+                color: Colors.white70,
+              ),
             ),
           if (!_uiHidden)
             Positioned(
@@ -563,9 +680,15 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 _action(
                   icon: _liked ? Icons.favorite : Icons.favorite_border,
                   label: '点赞',
-                  count: (_likeCount ?? item.like) + (_liked ? 1 : 0),
+                  count: _likeCount ?? item.like,
                   active: _liked,
                   onTap: _toggleLike,
+                ),
+                _action(
+                  icon: Icons.monetization_on_outlined,
+                  label: '投币',
+                  count: _coinCount ?? 0,
+                  onTap: _showCoin,
                 ),
                 _action(
                   icon: Icons.chat_bubble_outline,
@@ -835,7 +958,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     final vw = player.state.width.toDouble();
     final vh = player.state.height.toDouble();
     final Widget layer = Padding(
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: 60),
       child: IgnorePointer(
         child: _DanmakuLayer(
           player: player,
@@ -954,7 +1077,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _VerticalComments(aid: widget.item.aid),
-    );
+    ).whenComplete(_loadStats);
   }
 
 }
@@ -1135,12 +1258,39 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  reply.member?.uname ?? '匿名',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        reply.member?.uname ?? '匿名',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    if (reply.member?.levelInfo?.currentLevel case final level?)
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF00AEEC),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        child: Text(
+                                          'LV$level',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
