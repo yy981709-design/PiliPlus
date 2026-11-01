@@ -1027,17 +1027,19 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ),
                     ),
                   ),
-                  TextButton(
-                    onPressed: _openDetail,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      minimumSize: const Size(0, 30),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                  IconButton(
+                    tooltip: '详情页',
+                    visualDensity: VisualDensity.compact,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(26, 26),
+                      padding: EdgeInsets.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text(
-                      '详情页',
-                      style: TextStyle(fontSize: 10),
+                    onPressed: _openDetail,
+                    icon: const Icon(
+                      Icons.info_outline,
+                      color: Colors.white70,
+                      size: 17,
                     ),
                   ),
                   IconButton(
@@ -1224,30 +1226,17 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   }
 
   Widget _buildDanmakuLayer(_VerticalItem item, Size screen) {
-    final player = _player!;
-    final vw = player.state.width.toDouble();
-    final vh = player.state.height.toDouble();
-    final Widget layer = Padding(
-      padding: const EdgeInsets.only(top: 56),
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 80,
+      bottom: 120,
       child: IgnorePointer(
         child: _DanmakuLayer(
-          player: player,
+          player: _player!,
           cid: item.cid,
         ),
       ),
-    );
-    if (vw <= 0 || vh <= 0) {
-      return Positioned.fill(child: layer);
-    }
-    final scale = math.min(screen.width / vw, screen.height / vh);
-    final width = vw * scale;
-    final height = vh * scale;
-    return Positioned(
-      left: (screen.width - width) / 2,
-      top: (screen.height - height) / 2,
-      width: width,
-      height: height,
-      child: layer,
     );
   }
 
