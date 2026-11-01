@@ -519,6 +519,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     }
     if (_likeLoading) return;
     _likeLoading = true;
+    try {
+      final rel = await VideoHttp.videoRelation(bvid: widget.item.bvid);
+      if (rel case Success(:final response)) {
+        _liked = response.like ?? false;
+      }
+    } catch (_) {}
     final res = await VideoHttp.likeVideo(
       bvid: widget.item.bvid,
       type: _liked,
@@ -910,12 +916,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               onPointerCancel: (_) {
                 _pointerDown = null;
               },
-              onPanStart: (_) {
-                _pointerMoved = true;
-              },
-              onPanUpdate: (_) {
-                _pointerMoved = true;
-              },
+              onPanStart: (_) {},
+              onPanUpdate: (_) {},
               onPanEnd: (_) {},
               onScaleUpdate: _onViewerScale,
               child: Video(
@@ -936,7 +938,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           if (_danmakuOn && _player != null && item.cid > 0)
             _buildDanmakuLayer(item, size),
-          if (!_uiHidden)
+          if (!_uiHidden && !_landscape)
             Positioned(
               left: 4,
               top: MediaQuery.paddingOf(context).top,
@@ -965,7 +967,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 ],
               ),
             ),
-          if (!_uiHidden)
+          if (!_uiHidden && !_landscape)
             Positioned(
               right: 4,
               top: MediaQuery.paddingOf(context).top,
@@ -991,7 +993,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             )
           else if (!_playing)
             const Center(child: _BiliTvPlay()),
-          if (!_uiHidden)
+          if (!_uiHidden && !_landscape)
             Positioned(
               right: 10,
               bottom: 48,
@@ -1035,7 +1037,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ],
             ),
           ),
-          if (!_uiHidden)
+          if (!_uiHidden && !_landscape)
             Positioned(
               left: 12,
               right: 16,
@@ -1134,7 +1136,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 ],
               ),
             ),
-          if (!_uiHidden && _player != null)
+          if (!_uiHidden && !_landscape && _player != null)
             Positioned(
               left: 12,
               right: 12,
@@ -1155,7 +1157,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 },
               ),
             ),
-          if (!_uiHidden)
+          if (!_uiHidden && !_landscape)
             Positioned(
               left: 16,
               right: 84,
@@ -1282,7 +1284,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ],
             ),
           ),
-          if (_uiHidden)
+          if (_uiHidden && !_landscape)
             Positioned.fill(
               child: GestureDetector(
                 onTap: () {
