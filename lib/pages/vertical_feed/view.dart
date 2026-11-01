@@ -2,7 +2,6 @@ import 'dart:ui' show ImageFilter;
 
 import 'dart:async';
 
-import 'package:PiliPlus/common/widgets/gesture/mouse_interactive_viewer.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
 import 'package:PiliPlus/grpc/dm.dart';
@@ -31,7 +30,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -290,6 +288,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _statsLoading = false;
   bool _landscape = false;
   bool _landscapeWork = false;
+  bool _landscapeControlsVisible = true;
+  Timer? _landscapeTimer;
   bool _uiHidden = false;
   bool _danmakuOn = true;
   bool _autoNext = true;
@@ -301,13 +301,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   int? _coinCount;
   bool _likeLoading = false;
   bool _playing = true;
-  bool _zoomed = false;
-  Offset? _pointerDown;
-  DateTime? _pointerDownAt;
-  bool _pointerMoved = false;
-  final TransformationController _transformController = TransformationController();
-  final GlobalKey _videoKey = GlobalKey();
-  late final ScaleGestureRecognizer _scaleGestureRecognizer;
   String? _avatar;
   bool _followed = false;
   bool _favorited = false;
@@ -321,7 +314,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     } else if (widget.preload) {
       _initPlayer(play: false);
     }
-    _scaleGestureRecognizer = ScaleGestureRecognizer();
     _loadStats();
   }
 
@@ -348,14 +340,15 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
 
   @override
   void dispose() {
+    _landscapeTimer?.cancel();
+    if (_landscape) {
+      SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     _completedSub?.cancel();
     _playingSub?.cancel();
     _layoutSub?.cancel();
-    _scaleGestureRecognizer.dispose();
-    _transformController.dispose();
     _player?.dispose();
-    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -391,38 +384,15 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     _statsLoading = false;
   }
 
-  void _onViewerPointerDown(PointerDownEvent event) {
-    _pointerDown = event.position;
-    _pointerDownAt = DateTime.now();
-    _pointerMoved = false;
+  double _rateBeforeLongPress = 1.0;
+
+  void _startLongPressSpeed() {
+    _rateBeforeLongPress = _player?.state.rate ?? 1.0;
+    _player?.setRate(2.0);
   }
 
-  void _onViewerPointerMove(PointerMoveEvent event) {
-    final down = _pointerDown;
-    if (down != null && (event.position - down).distance > 12) {
-      _pointerMoved = true;
-    }
-  }
-
-  void _onViewerPointerUp(PointerUpEvent event) {
-    final down = _pointerDown;
-    final at = _pointerDownAt;
-    _pointerDown = null;
-    _pointerDownAt = null;
-    if (down == null || at == null || _pointerMoved) return;
-    if ((event.position - down).distance > 12) return;
-    if (DateTime.now().difference(at).inMilliseconds > 350) return;
-    _togglePlay();
-  }
-
-  void _onViewerScale(double scale) {
-    if ((scale - 1).abs() > 0.02) {
-      _pointerMoved = true;
-    }
-    final zoomed = scale > 1.01;
-    if (zoomed != _zoomed) {
-      setState(() => _zoomed = zoomed);
-    }
+  void _endLongPressSpeed() {
+    _player?.setRate(_rateBeforeLongPress);
   }
 
   Future<void> _initPlayer({bool play = true}) async {
@@ -522,12 +492,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     }
     if (_likeLoading) return;
     _likeLoading = true;
-    try {
-      final rel = await VideoHttp.videoRelation(bvid: widget.item.bvid);
-      if (rel case Success(:final response)) {
-        _liked = response.like ?? false;
-      }
-    } catch (_) {}
     final res = await VideoHttp.likeVideo(
       bvid: widget.item.bvid,
       type: _liked,
@@ -655,6 +619,19 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     }
   }
 
+  void _showLandscapeControls() {
+    if (!_landscape) return;
+    if (!_landscapeControlsVisible) {
+      setState(() => _landscapeControlsVisible = true);
+    }
+    _landscapeTimer?.cancel();
+    _landscapeTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && _landscape) {
+        setState(() => _landscapeControlsVisible = false);
+      }
+    });
+  }
+
   void _enterLandscape() {
     _landscape = true;
     _uiHidden = true;
@@ -663,10 +640,13 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       DeviceOrientation.landscapeRight,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _showLandscapeControls();
     setState(() {});
   }
 
   void _exitLandscape() {
+    _landscapeTimer?.cancel();
+    _landscapeTimer = null;
     _landscape = false;
     _uiHidden = false;
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
@@ -897,36 +877,17 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           const ColoredBox(color: Colors.black38),
           if (_videoController != null)
-            Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: _onViewerPointerDown,
-              onPointerMove: _onViewerPointerMove,
-              onPointerUp: _onViewerPointerUp,
-              onPointerCancel: (_) {
-                _pointerDown = null;
-              },
-              child: MouseInteractiveViewer(
-                transformationController: _transformController,
-              minScale: 1,
-              maxScale: 3,
-              panEnabled: _zoomed,
-              scaleEnabled: true,
-              boundaryMargin: const EdgeInsets.all(80),
-              childKey: _videoKey,
-              scaleGestureRecognizer: _scaleGestureRecognizer,
-              onPointerDown: (_) {},
-              onPointerUp: (_) {},
-              onPointerCancel: (_) {},
-              onPanStart: (_) {},
-              onPanUpdate: (_) {},
-              onPanEnd: (_) {},
-              onScaleUpdate: _onViewerScale,
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _togglePlay,
+              onDoubleTap: _toggleLike,
+              onLongPressStart: (_) => _startLongPressSpeed(),
+              onLongPressEnd: (_) => _endLongPressSpeed(),
               child: Video(
                 controller: _videoController!,
                 fit: BoxFit.contain,
                 controls: (state) => const SizedBox.shrink(),
               ),
-            ),
             ),
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -1315,10 +1276,21 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   }
 
   Widget _buildLandscapeControls(_VerticalItem item) {
+    if (!_landscapeControlsVisible) {
+      return Positioned.fill(
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _showLandscapeControls,
+          child: const ColoredBox(color: Colors.transparent),
+        ),
+      );
+    }
     final player = _player;
     final duration = player?.state.duration ?? Duration.zero;
     return Positioned.fill(
-      child: SafeArea(
+      child: Listener(
+        onPointerDown: (_) => _showLandscapeControls(),
+        child: SafeArea(
         child: Column(
           children: [
             Row(
@@ -1405,6 +1377,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               },
             ),
           ],
+        ),
         ),
       ),
     );
