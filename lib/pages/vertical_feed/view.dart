@@ -492,15 +492,17 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     }
     if (_likeLoading) return;
     _likeLoading = true;
+    final newVal = !_liked;
     final res = await VideoHttp.likeVideo(
       bvid: widget.item.bvid,
-      type: _liked,
+      type: newVal,
     );
     _likeLoading = false;
     if (res case Success(:final response)) {
       setState(() {
-        _liked = !_liked;
-        _likeCount = (_likeCount ?? widget.item.like) + (_liked ? 1 : -1);
+        _liked = newVal;
+        _likeCount =
+            (_likeCount ?? widget.item.like) + (newVal ? 1 : -1);
       });
       SmartDialog.showToast(response);
     } else if (res case Error(:final errMsg)) {
@@ -864,7 +866,13 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final size = MediaQuery.sizeOf(context);
-    return Stack(
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: _togglePlay,
+      onDoubleTap: _toggleLike,
+      onLongPressStart: (_) => _startLongPressSpeed(),
+      onLongPressEnd: (_) => _endLongPressSpeed(),
+      child: Stack(
         fit: StackFit.expand,
         children: [
           ImageFiltered(
@@ -877,17 +885,10 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           const ColoredBox(color: Colors.black38),
           if (_videoController != null)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _togglePlay,
-              onDoubleTap: _toggleLike,
-              onLongPressStart: (_) => _startLongPressSpeed(),
-              onLongPressEnd: (_) => _endLongPressSpeed(),
-              child: Video(
-                controller: _videoController!,
-                fit: BoxFit.contain,
-                controls: (state) => const SizedBox.shrink(),
-              ),
+            Video(
+              controller: _videoController!,
+              fit: BoxFit.contain,
+              controls: (state) => const SizedBox.shrink(),
             ),
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -1257,6 +1258,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ),
             ),
         ],
+      ),
     );
   }
 
@@ -1335,7 +1337,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 final position =
                     snapshot.data ?? player?.state.position ?? Duration.zero;
                 return Container(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+                  padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
                   color: Colors.black45,
               child: Row(
                 children: [
@@ -1348,23 +1350,38 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   ),
                   Text(
                     _formatLandscapeTime(position),
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    style: const TextStyle(color: Colors.white70, fontSize: 10),
                   ),
                   Expanded(
-                    child: Slider(
-                      value: duration.inMilliseconds > 0
-                          ? (position.inMilliseconds / duration.inMilliseconds)
-                                .clamp(0.0, 1.0)
-                                .toDouble()
-                          : 0.0,
-                      onChanged: (value) {
-                        player?.seek(
-                          Duration(
-                            milliseconds:
-                                (duration.inMilliseconds * value).round(),
+                    child: SizedBox(
+                      height: 24,
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 2,
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 5,
                           ),
-                        );
-                      },
+                          overlayShape: const RoundSliderOverlayShape(
+                            overlayRadius: 10,
+                          ),
+                        ),
+                        child: Slider(
+                          value: duration.inMilliseconds > 0
+                              ? (position.inMilliseconds /
+                                        duration.inMilliseconds)
+                                    .clamp(0.0, 1.0)
+                                    .toDouble()
+                              : 0.0,
+                          onChanged: (value) {
+                            player?.seek(
+                              Duration(
+                                milliseconds:
+                                    (duration.inMilliseconds * value).round(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   ),
                   Text(
