@@ -3,15 +3,18 @@ import 'dart:ui' show ImageFilter;
 import 'dart:async';
 
 import 'package:PiliPlus/http/constants.dart';
+import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:PiliPlus/grpc/dm.dart';
+import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/danmaku.dart';
-import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models_new/reply/data.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
+import 'package:PiliPlus/utils/danmaku_utils.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/home/rcmd/result.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
@@ -20,9 +23,10 @@ import 'package:PiliPlus/utils/extension/dimension_ext.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
+import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:get/get.dart';
-import 'package:dio/dio.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -1250,137 +1254,90 @@ class _DanmakuLayer extends StatefulWidget {
 }
 
 class _DanmakuLayerState extends State<_DanmakuLayer> {
-  final List<_DanmakuItem> _items = [];
-  Timer? _timer;
+  final Map<int, List<DanmakuElem>> _segments = {};
+  final Set<int> _requested = {};
+  DanmakuController<DanmakuExtra>? _controller;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<bool>? _playingSub;
+  int _lastPosition = -1;
 
   @override
   void initState() {
     super.initState();
-    _load();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      if (mounted) setState(() {});
+    _positionSub = widget.player.stream.position.listen(_onPosition);
+    _playingSub = widget.player.stream.playing.listen((playing) {
+      if (playing) {
+        _controller?.resume();
+      } else {
+        _controller?.pause();
+      }
     });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _positionSub?.cancel();
+    _playingSub?.cancel();
+    _segments.clear();
+    _requested.clear();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    try {
-      String xml = '';
-      try {
-        final res = await Request().get(
-          'https://api.bilibili.com/x/v1/dm/list.so',
-          queryParameters: {'oid': widget.cid, 'type': 1},
-          options: Options(
-            responseType: ResponseType.plain,
-            headers: {
-              'referer': 'https://www.bilibili.com',
-              'user-agent': BrowserUa.pc,
-            },
-          ),
-        );
-        final data = res.data;
-        xml = data is String ? data : data.toString();
-      } catch (_) {}
-      if (!xml.contains('<d p=')) {
-        try {
-          final res = await Request().get(
-            'https://comment.bilibili.com/${widget.cid}.xml',
-            options: Options(
-              responseType: ResponseType.plain,
-              headers: {
-                'referer': 'https://www.bilibili.com',
-                'user-agent': BrowserUa.pc,
-              },
-            ),
-          );
-          final data = res.data;
-          xml = data is String ? data : data.toString();
-        } catch (_) {}
+  Future<void> _ensureSegment(int segment) async {
+    if (_requested.contains(segment)) return;
+    _requested.add(segment);
+    final res = await DmGrpc.dmSegMobile(
+      cid: widget.cid,
+      segmentIndex: segment + 1,
+    );
+    if (res case Success(:final response)) {
+      for (final elem in response.elems) {
+        (_segments[elem.progress ~/ 100] ??= []).add(elem);
       }
-      final matches = RegExp(
-        r'<d p="([^"]*)"[^>]*>(.*?)</d>',
-        dotAll: true,
-      ).allMatches(xml);
-      for (final match in matches) {
-        final parts = match.group(1)!.split(',');
-        if (parts.length < 4) continue;
-        final time = double.tryParse(parts[0]);
-        final color = int.tryParse(parts[3]) ?? 0xFFFFFF;
-        final text = _unescape(match.group(2)!);
-        if (time == null || text.isEmpty) continue;
-        _items.add(_DanmakuItem(time, text, color));
-      }
-      _items.sort((a, b) => a.time.compareTo(b.time));
-    } catch (_) {}
-    if (mounted) setState(() {});
+    } else {
+      _requested.remove(segment);
+    }
   }
 
-  String _unescape(String text) {
-    return text
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#39;', "'");
+  void _onPosition(Duration position) {
+    final controller = _controller;
+    if (controller == null) return;
+    final ms = position.inMilliseconds;
+    final segment = DmUtils.calcSegment(ms);
+    _ensureSegment(segment);
+    final key = ms ~/ 100;
+    if (key == _lastPosition) return;
+    _lastPosition = key;
+    final list = _segments[key];
+    if (list == null || list.isEmpty) return;
+    for (final elem in list) {
+      if (elem.mode == 7) continue;
+      controller.addDanmaku(
+        DanmakuContentItem(
+          elem.content,
+          color: DmUtils.decimalToColor(elem.color),
+          type: DmUtils.getPosition(elem.mode),
+          count: elem.count > 1 ? elem.count : null,
+          selfSend: elem.isSelf,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_items.isEmpty) return const SizedBox.shrink();
-    final position = widget.player.state.position.inMilliseconds / 1000.0;
-    final visible = _items
-        .where((e) => position >= e.time && position <= e.time + 8)
-        .toList();
-    if (visible.isEmpty) return const SizedBox.shrink();
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Stack(
-          children: [
-            for (var i = 0; i < visible.length; i++)
-              _buildItem(visible[i], i, constraints.maxWidth, position),
-          ],
-        );
+    final size = MediaQuery.sizeOf(context);
+    return DanmakuScreen<DanmakuExtra>(
+      createdController: (controller) {
+        _controller = controller;
+        if (widget.player.state.playing) {
+          controller.resume();
+        } else {
+          controller.pause();
+        }
       },
+      option: DanmakuOptions.get(notFullscreen: false, speed: 1.0),
+      size: size,
     );
   }
-
-  Widget _buildItem(
-    _DanmakuItem item,
-    int index,
-    double width,
-    double position,
-  ) {
-    final progress = ((position - item.time) / 8).clamp(0.0, 1.0);
-    final left = width - progress * (width + 320);
-    return Positioned(
-      left: left,
-      top: 42.0 + (index % 8) * 27,
-      child: Text(
-        item.text,
-        maxLines: 1,
-        style: TextStyle(
-          color: Color(0xFF000000 | item.color),
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          shadows: const [
-            Shadow(color: Colors.black87, blurRadius: 3),
-            Shadow(color: Colors.black54, blurRadius: 3),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DanmakuItem {
-  final double time;
-  final String text;
-  final int color;
-
-  const _DanmakuItem(this.time, this.text, this.color);
 }
