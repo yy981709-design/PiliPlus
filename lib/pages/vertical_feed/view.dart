@@ -1003,7 +1003,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             Positioned(
               left: 16,
               right: 84,
-              bottom: 44,
+              bottom: 56,
               child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1701,8 +1701,9 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
       builder: (context, constraints) => DanmakuScreen<DanmakuExtra>(
         createdController: (controller) {
           _controller = controller;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+          Future.delayed(const Duration(milliseconds: 350), () {
             if (!mounted) return;
+            _lastPosition = -1;
             _ready = true;
             setState(() {});
           });
