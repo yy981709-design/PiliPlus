@@ -4,6 +4,8 @@ import 'dart:async';
 
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/http/danmaku.dart';
+import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models_new/reply/data.dart';
@@ -20,6 +22,7 @@ import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:dio/dio.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -35,6 +38,7 @@ class VerticalFeedPage extends StatefulWidget {
 class _VerticalFeedPageState extends State<VerticalFeedPage> {
   final List<_VerticalItem> _items = [];
   final PageController _pageController = PageController();
+  final Map<String, Future<String?>> _mediaFutures = {};
   bool _loading = false;
   bool _loaded = false;
   int _page = 0;
@@ -110,7 +114,18 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
     } catch (_) {}
     _loading = false;
     _loaded = true;
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      _preloadAround();
+    }
+  }
+
+  void _preloadAround() {
+    for (var i = _index; i <= _index + 2 && i < _items.length; i++) {
+      final item = _items[i];
+      final key = '${item.bvid}_${item.cid}';
+      _mediaFutures.putIfAbsent(key, () => _resolveVerticalMedia(item));
+    }
   }
 
   void _next() {
@@ -143,13 +158,21 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
               itemCount: _items.length,
               onPageChanged: (index) {
                 setState(() => _index = index);
+                _preloadAround();
                 if (index >= _items.length - 2) _fetchMore();
               },
               itemBuilder: (context, index) {
+                final item = _items[index];
+                final key = '${item.bvid}_${item.cid}';
                 return _VerticalPlayerItem(
-                  key: ValueKey('${_items[index].bvid}_${_items[index].cid}'),
-                  item: _items[index],
+                  key: ValueKey(key),
+                  item: item,
                   active: index == _index,
+                  preload: index == _index + 1,
+                  mediaFuture: _mediaFutures.putIfAbsent(
+                    key,
+                    () => _resolveVerticalMedia(item),
+                  ),
                   onCompleted: _next,
                 );
               },
@@ -190,10 +213,14 @@ class _VerticalPlayerItem extends StatefulWidget {
     required this.item,
     required this.active,
     required this.onCompleted,
+    this.preload = false,
+    this.mediaFuture,
   });
 
   final _VerticalItem item;
   final bool active;
+  final bool preload;
+  final Future<String?>? mediaFuture;
   final VoidCallback onCompleted;
 
   @override
@@ -211,6 +238,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _landscape = false;
   bool _landscapeWork = false;
   bool _uiHidden = false;
+  bool _danmakuOn = true;
   int? _likeCount;
   int? _commentCount;
   int? _favoriteCount;
@@ -223,7 +251,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   @override
   void initState() {
     super.initState();
-    if (widget.active) _initPlayer();
+    if (widget.active) {
+      _initPlayer();
+    } else if (widget.preload) {
+      _initPlayer(play: false);
+    }
     _loadStats();
   }
 
@@ -277,11 +309,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     _statsLoading = false;
   }
 
-  Future<void> _initPlayer() async {
+  Future<void> _initPlayer({bool play = true}) async {
     if (_loading || _player != null) return;
     _loading = true;
     try {
-      final mediaUrl = await _resolveMediaUrl(widget.item);
+      final mediaUrl = await (widget.mediaFuture ?? _resolveVerticalMedia(widget.item));
       if (mediaUrl == null || !mounted || !widget.active) {
         _loading = false;
         return;
@@ -292,7 +324,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         userAgent: BrowserUa.pc,
         referer: HttpString.baseUrl,
       );
-      await player.open(Media(mediaUrl), play: true);
+      await player.open(Media(mediaUrl), play: play && widget.active);
       _landscapeWork = player.state.width > player.state.height;
       _completedSub = player.stream.completed.listen((completed) {
         if (completed && mounted && widget.active) widget.onCompleted();
@@ -305,6 +337,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         _player = player;
         _videoController = controller;
       });
+      if (widget.active && !play) {
+        player.play();
+      }
     } catch (e) {
       if (mounted) {
         SmartDialog.showToast('加载失败：$e');
@@ -485,6 +520,15 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ),
             ),
           ),
+          if (_danmakuOn && _player != null && item.cid > 0)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: _DanmakuLayer(
+                  player: _player!,
+                  cid: item.cid,
+                ),
+              ),
+            ),
           if (!_uiHidden)
             Positioned(
               left: 14,
@@ -556,6 +600,15 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  IconButton(
+                    tooltip: _danmakuOn ? '关闭弹幕' : '开启弹幕',
+                    onPressed: () => setState(() => _danmakuOn = !_danmakuOn),
+                    icon: Icon(
+                      _danmakuOn ? Icons.subtitles : Icons.subtitles_off,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                  ),
                   TextButton(
                     onPressed: _openDetail,
                     style: TextButton.styleFrom(
@@ -588,7 +641,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               right: 12,
               bottom: 10,
             child: InkWell(
-              onTap: _openComments,
+              onTap: _sendDanmaku,
               borderRadius: BorderRadius.circular(20),
               child: Container(
                 height: 38,
@@ -824,6 +877,49 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   String _shortCount(int value) {
     if (value >= 10000) return '${(value / 10000).toStringAsFixed(1)}万';
     return '$value';
+  }
+
+  Future<void> _sendDanmaku() async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    final controller = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('发弹幕'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 100,
+          decoration: const InputDecoration(hintText: '发一条弹幕...'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('发送'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (text == null || text.isEmpty) return;
+    final res = await DanmakuHttp.shootDanmaku(
+      oid: widget.item.cid,
+      bvid: widget.item.bvid,
+      msg: text,
+      progress: _player?.state.position.inMilliseconds ?? 0,
+    );
+    if (res.isSuccess) {
+      SmartDialog.showToast('弹幕已发送');
+    } else {
+      SmartDialog.showToast('发送失败');
+    }
   }
 
   void _openComments() {
@@ -1103,4 +1199,167 @@ class _VerticalCommentsState extends State<_VerticalComments> {
       ),
     );
   }
+}
+
+Future<String?> _resolveVerticalMedia(_VerticalItem item) async {
+  final res = await VideoHttp.videoUrl(
+    bvid: item.bvid,
+    cid: item.cid,
+    qn: 64,
+    tryLook: true,
+    videoType: VideoType.ugc,
+  );
+  if (res case Success(:final response)) {
+    final dash = response.dash;
+    final videos = dash?.video;
+    if (videos != null && videos.isNotEmpty) {
+      final video = VideoUtils.getCdnUrl(videos.first.playUrls);
+      final audios = dash?.audio;
+      final audio = audios != null && audios.isNotEmpty
+          ? VideoUtils.getCdnUrl(audios.first.playUrls, isAudio: true)
+          : null;
+      if (audio != null) {
+        return 'edl://!no_chapters;%${video.length}%$video;'
+            '!new_stream;!no_chapters;%${audio.length}%$audio';
+      }
+      return video;
+    }
+    final durl = response.durl;
+    if (durl != null && durl.isNotEmpty) {
+      final first = durl.first;
+      final urls = <String>[
+        if (first.url?.isNotEmpty == true) first.url!,
+        ...?first.backupUrl,
+      ];
+      if (urls.isNotEmpty) return VideoUtils.getCdnUrl(urls);
+    }
+  }
+  return null;
+}
+
+class _DanmakuLayer extends StatefulWidget {
+  const _DanmakuLayer({required this.player, required this.cid});
+
+  final Player player;
+  final int cid;
+
+  @override
+  State<_DanmakuLayer> createState() => _DanmakuLayerState();
+}
+
+class _DanmakuLayerState extends State<_DanmakuLayer> {
+  final List<_DanmakuItem> _items = [];
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await Request().get(
+        'https://api.bilibili.com/x/v1/dm/list.so',
+        queryParameters: {'oid': widget.cid},
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'referer': 'https://www.bilibili.com',
+            'user-agent': BrowserUa.pc,
+          },
+        ),
+      );
+      final data = res.data;
+      final xml = data is String ? data : data.toString();
+      final matches = RegExp(
+        r'<d p="([^"]*)"[^>]*>(.*?)</d>',
+        dotAll: true,
+      ).allMatches(xml);
+      for (final match in matches) {
+        final parts = match.group(1)!.split(',');
+        if (parts.length < 4) continue;
+        final time = double.tryParse(parts[0]);
+        final color = int.tryParse(parts[3]) ?? 0xFFFFFF;
+        final text = _unescape(match.group(2)!);
+        if (time == null || text.isEmpty) continue;
+        _items.add(_DanmakuItem(time, text, color));
+      }
+      _items.sort((a, b) => a.time.compareTo(b.time));
+    } catch (_) {}
+    if (mounted) setState(() {});
+  }
+
+  String _unescape(String text) {
+    return text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_items.isEmpty) return const SizedBox.shrink();
+    final position = widget.player.state.position.inMilliseconds / 1000.0;
+    final visible = _items
+        .where((e) => position >= e.time && position <= e.time + 8)
+        .toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            for (var i = 0; i < visible.length; i++)
+              _buildItem(visible[i], i, constraints.maxWidth, position),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildItem(
+    _DanmakuItem item,
+    int index,
+    double width,
+    double position,
+  ) {
+    final progress = ((position - item.time) / 8).clamp(0.0, 1.0);
+    final left = width - progress * (width + 320);
+    return Positioned(
+      left: left,
+      top: 42.0 + (index % 8) * 27,
+      child: Text(
+        item.text,
+        maxLines: 1,
+        style: TextStyle(
+          color: Color(0xFF000000 | item.color),
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          shadows: const [
+            Shadow(color: Colors.black87, blurRadius: 3),
+            Shadow(color: Colors.black54, blurRadius: 3),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DanmakuItem {
+  final double time;
+  final String text;
+  final int color;
+
+  const _DanmakuItem(this.time, this.text, this.color);
 }
