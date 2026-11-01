@@ -2,6 +2,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'dart:async';
 
+import 'package:PiliPlus/common/widgets/gesture/mouse_interactive_viewer.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
 import 'package:PiliPlus/grpc/dm.dart';
