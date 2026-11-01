@@ -24,6 +24,7 @@ class _FollowBatchPageState extends State<FollowBatchPage> {
   bool _loading = true;
   bool _processing = false;
   bool _relationsLoaded = false;
+  String? _error;
 
   static const _categories = [
     '全部',
@@ -42,12 +43,17 @@ class _FollowBatchPageState extends State<FollowBatchPage> {
 
   Future<void> _loadAll() async {
     for (var pn = 1; pn <= 8; pn++) {
-      final res = await FollowHttp.followings(pn: pn, ps: 20);
+      final res = await FollowHttp.followings(
+        vmid: Accounts.main.mid,
+        pn: pn,
+        ps: 20,
+      );
       if (res case Success(:final response)) {
         final list = response.list ?? const <FollowItemModel>[];
         _all.addAll(list);
         if (list.length < 20) break;
       } else {
+        _error = res.toString();
         break;
       }
     }
@@ -82,6 +88,7 @@ class _FollowBatchPageState extends State<FollowBatchPage> {
     }
     if (category == '最常访问' || category == '不常看') {
       final res = await FollowHttp.followings(
+        vmid: Accounts.main.mid,
         pn: 1,
         ps: 50,
         orderType: 'attention',
@@ -202,7 +209,13 @@ class _FollowBatchPageState extends State<FollowBatchPage> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _shown.isEmpty
-                ? const Center(child: Text('当前分类没有可管理的关注'))
+                ? Center(
+                    child: Text(
+                      _error == null || _error!.isEmpty
+                          ? '当前分类没有可管理的关注'
+                          : '加载失败：$_error',
+                    ),
+                  )
                 : ListView.builder(
                     itemCount: _shown.length,
                     itemBuilder: (context, index) {
