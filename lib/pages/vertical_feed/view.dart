@@ -30,6 +30,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -301,6 +302,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _playing = true;
   bool _zoomed = false;
   final TransformationController _transformController = TransformationController();
+  final GlobalKey _videoKey = GlobalKey();
+  late final ScaleGestureRecognizer _scaleGestureRecognizer;
   String? _avatar;
   bool _followed = false;
   bool _favorited = false;
@@ -314,6 +317,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     } else if (widget.preload) {
       _initPlayer(play: false);
     }
+    _scaleGestureRecognizer = ScaleGestureRecognizer();
     _loadStats();
   }
 
@@ -342,6 +346,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     _completedSub?.cancel();
     _playingSub?.cancel();
     _layoutSub?.cancel();
+    _scaleGestureRecognizer.dispose();
     _transformController.dispose();
     _player?.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
@@ -404,7 +409,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         if (player.state.width > 0 && player.state.height > 0) {
           _layoutSub?.cancel();
           _layoutSub = null;
-          setState(() {});
+          setState(() {
+            _landscapeWork = player.state.width > player.state.height;
+          });
         }
       });
       _playingSub = player.stream.playing.listen((playing) {
@@ -824,31 +831,38 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           const ColoredBox(color: Colors.black38),
           if (_videoController != null)
-            InteractiveViewer(
-                transformationController: _transformController,
-                minScale: 1,
-                maxScale: 3,
-                panEnabled: _zoomed,
-                scaleEnabled: true,
-                boundaryMargin: const EdgeInsets.all(80),
-                onInteractionUpdate: (_) {
-                  final zoomed =
-                      _transformController.value.getMaxScaleOnAxis() > 1.01;
-                  if (zoomed != _zoomed) {
-                    setState(() => _zoomed = zoomed);
-                  }
-                },
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _togglePlay,
-                  onDoubleTap: _toggleLike,
-                  child: Video(
-                    controller: _videoController!,
-                    fit: BoxFit.contain,
-                    controls: (state) => const SizedBox.shrink(),
-                  ),
+            MouseInteractiveViewer(
+              transformationController: _transformController,
+              minScale: 1,
+              maxScale: 3,
+              panEnabled: _zoomed,
+              scaleEnabled: true,
+              boundaryMargin: const EdgeInsets.all(80),
+              childKey: _videoKey,
+              scaleGestureRecognizer: _scaleGestureRecognizer,
+              onPointerDown: (_) {},
+              onPointerUp: (_) {},
+              onPointerCancel: (_) {},
+              onPanStart: (_) {},
+              onPanUpdate: (_) {},
+              onPanEnd: (_) {},
+              onScaleUpdate: (scale) {
+                final zoomed = scale > 1.01;
+                if (zoomed != _zoomed) {
+                  setState(() => _zoomed = zoomed);
+                }
+              },
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _togglePlay,
+                onDoubleTap: _toggleLike,
+                child: Video(
+                  controller: _videoController!,
+                  fit: BoxFit.contain,
+                  controls: (state) => const SizedBox.shrink(),
                 ),
               ),
+            ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
