@@ -302,6 +302,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _likeLoading = false;
   bool _playing = true;
   bool _zoomed = false;
+  Offset? _pointerDown;
+  DateTime? _pointerDownAt;
+  bool _pointerMoved = false;
   final TransformationController _transformController = TransformationController();
   final GlobalKey _videoKey = GlobalKey();
   late final ScaleGestureRecognizer _scaleGestureRecognizer;
@@ -386,6 +389,31 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       }
     } catch (_) {}
     _statsLoading = false;
+  }
+
+  void _onViewerPointerDown(PointerDownEvent event) {
+    _pointerDown = event.position;
+    _pointerDownAt = DateTime.now();
+    _pointerMoved = false;
+  }
+
+  void _onViewerPointerUp(PointerUpEvent event) {
+    final down = _pointerDown;
+    final at = _pointerDownAt;
+    _pointerDown = null;
+    _pointerDownAt = null;
+    if (down == null || at == null || _pointerMoved) return;
+    if ((event.position - down).distance > 12) return;
+    if (DateTime.now().difference(at).inMilliseconds > 350) return;
+    _togglePlay();
+  }
+
+  void _onViewerScale(double scale) {
+    _pointerMoved = true;
+    final zoomed = scale > 1.01;
+    if (zoomed != _zoomed) {
+      setState(() => _zoomed = zoomed);
+    }
   }
 
   Future<void> _initPlayer({bool play = true}) async {
@@ -497,9 +525,13 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       });
       SmartDialog.showToast(response);
     } else if (res case Error(:final errMsg)) {
+      try {
+        final rel = await VideoHttp.videoRelation(bvid: widget.item.bvid);
+        if (rel case Success(:final response)) {
+          setState(() => _liked = response.like ?? false);
+        }
+      } catch (_) {}
       SmartDialog.showToast(errMsg ?? '操作失败');
-    } else {
-      SmartDialog.showToast('点赞失败');
     }
   }
 
@@ -829,27 +861,23 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               boundaryMargin: const EdgeInsets.all(80),
               childKey: _videoKey,
               scaleGestureRecognizer: _scaleGestureRecognizer,
-              onPointerDown: (_) {},
-              onPointerUp: (_) {},
-              onPointerCancel: (_) {},
-              onPanStart: (_) {},
-              onPanUpdate: (_) {},
-              onPanEnd: (_) {},
-              onScaleUpdate: (scale) {
-                final zoomed = scale > 1.01;
-                if (zoomed != _zoomed) {
-                  setState(() => _zoomed = zoomed);
-                }
+              onPointerDown: _onViewerPointerDown,
+              onPointerUp: _onViewerPointerUp,
+              onPointerCancel: (_) {
+                _pointerDown = null;
               },
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _togglePlay,
-                onDoubleTap: _toggleLike,
-                child: Video(
-                  controller: _videoController!,
-                  fit: BoxFit.contain,
-                  controls: (state) => const SizedBox.shrink(),
-                ),
+              onPanStart: (_) {
+                _pointerMoved = true;
+              },
+              onPanUpdate: (_) {
+                _pointerMoved = true;
+              },
+              onPanEnd: (_) {},
+              onScaleUpdate: _onViewerScale,
+              child: Video(
+                controller: _videoController!,
+                fit: BoxFit.contain,
+                controls: (state) => const SizedBox.shrink(),
               ),
             ),
           const DecoratedBox(
