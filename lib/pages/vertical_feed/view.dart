@@ -1,7 +1,6 @@
 import 'dart:ui' show ImageFilter;
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
@@ -193,11 +192,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
                 }
                 final item = _items[index];
                 final key = '${item.bvid}_${item.cid}';
-                return AnimatedScale(
-                  scale: index == _index ? 1.0 : 0.94,
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  child: _VerticalPlayerItem(
+                return _VerticalPlayerItem(
                     key: ValueKey(key),
                     item: item,
                     active: index == _index,
@@ -207,8 +202,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
                       () => _resolveVerticalMedia(item),
                     ),
                     onCompleted: _next,
-                  ),
-                );
+                  );
               },
             ),
     );
@@ -817,10 +811,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final size = MediaQuery.sizeOf(context);
-    return GestureDetector(
-      onTap: _togglePlay,
-      onDoubleTap: _toggleLike,
-      child: Stack(
+    return Stack(
         fit: StackFit.expand,
         children: [
           ImageFiltered(
@@ -833,9 +824,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           const ColoredBox(color: Colors.black38),
           if (_videoController != null)
-            Transform.translate(
-              offset: const Offset(0, -24),
-              child: InteractiveViewer(
+            InteractiveViewer(
                 transformationController: _transformController,
                 minScale: 1,
                 maxScale: 3,
@@ -849,13 +838,17 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     setState(() => _zoomed = zoomed);
                   }
                 },
-                child: Video(
-                  controller: _videoController!,
-                  fit: BoxFit.contain,
-                  controls: (state) => const SizedBox.shrink(),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _togglePlay,
+                  onDoubleTap: _toggleLike,
+                  child: Video(
+                    controller: _videoController!,
+                    fit: BoxFit.contain,
+                    controls: (state) => const SizedBox.shrink(),
+                  ),
                 ),
               ),
-            ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -928,17 +921,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               child: Column(
               children: [
                 _action(
-                  icon: _liked ? Icons.favorite : Icons.favorite_border,
+                  icon: _liked ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
                   label: '点赞',
                   count: _likeCount ?? item.like,
                   active: _liked,
                   onTap: _toggleLike,
-                ),
-                _action(
-                  icon: Icons.monetization_on_outlined,
-                  label: '投币',
-                  count: _coinCount ?? 0,
-                  onTap: _showCoin,
                 ),
 
                 _action(
@@ -946,6 +933,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   label: '评论',
                   count: _commentCount ?? 0,
                   onTap: _openComments,
+                ),
+                _action(
+                  icon: Icons.monetization_on_outlined,
+                  label: '投币',
+                  count: _coinCount ?? 0,
+                  onTap: _showCoin,
                 ),
                 _action(
                   icon: _favorited ? Icons.star : Icons.star_border,
@@ -1221,7 +1214,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ),
             ),
         ],
-      ),
     );
   }
 
