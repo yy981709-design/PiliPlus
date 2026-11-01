@@ -15,6 +15,7 @@ import 'package:PiliPlus/pages/login/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/history/widgets/item.dart' show onPushHistory;
 import 'package:PiliPlus/pages/mine/controller.dart';
+import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
 import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/pages/mine/widgets/fav_item.dart';
 import 'package:PiliPlus/pages/mine/widgets/history_item.dart';
@@ -282,23 +283,44 @@ class _MediaPageState extends CommonPageState<MinePage>
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       childAspectRatio: 1.05,
-      children: list
-          .map(
-            (e) => InkWell(
-              onTap: e.onTap,
-              borderRadius: Style.mdRadius,
-              child: Column(
-                spacing: 6,
-                mainAxisSize: .min,
-                mainAxisAlignment: .center,
-                children: [
-                  Icon(e.icon, color: primary),
-                  Text(e.title, style: const TextStyle(fontSize: 12)),
-                ],
-              ),
-            ),
-          )
-          .toList(),
+      children: [
+        ...list.map(
+          (e) => _actionTile(
+            icon: e.icon,
+            title: e.title,
+            onTap: e.onTap,
+            primary: primary,
+          ),
+        ),
+        const SizedBox.shrink(),
+        _actionTile(
+          icon: Icons.workspace_premium_outlined,
+          title: '今日经验',
+          onTap: () => showDailyExpSheet(),
+          primary: primary,
+        ),
+      ],
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required Color primary,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: Style.mdRadius,
+      child: Column(
+        spacing: 6,
+        mainAxisSize: .min,
+        mainAxisAlignment: .center,
+        children: [
+          Icon(icon, color: primary),
+          Text(title, style: const TextStyle(fontSize: 12)),
+        ],
+      ),
     );
   }
 

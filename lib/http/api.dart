@@ -883,6 +883,8 @@ abstract final class Api {
   static const String spaceSettingMod = '/x/space/privacy/batch/modify';
 
   static const String vipExpAdd = '/x/vip/experience/add';
+  static const String dailyExpReward = '/x/member/web/exp/reward';
+  static const String shareVideo = '/x/web-interface/share/add';
 
   static const String coinLog = '/x/member/web/coin/log';
 

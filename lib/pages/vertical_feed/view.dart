@@ -6,6 +6,7 @@ import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
 import 'package:PiliPlus/grpc/dm.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
+import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/danmaku.dart';
 import 'package:PiliPlus/http/fav.dart';
@@ -799,6 +800,18 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               onChanged: (value) {
                 Navigator.pop(context);
                 setState(() => _autoNext = value);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.exposure_plus_1, color: Colors.white70),
+              title: const Text('今日经验', style: TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                Navigator.pop(context);
+                showDailyExpSheet(
+                  bvid: widget.item.bvid,
+                  aid: widget.item.aid,
+                );
               },
             ),
             ListTile(

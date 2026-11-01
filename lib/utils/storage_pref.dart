@@ -315,6 +315,13 @@ abstract final class Pref {
   static int get watchLevelStyle =>
       _setting.get(SettingBoxKey.watchLevelStyle, defaultValue: 0);
 
+  static bool get dailyExpWatch =>
+      _setting.get(SettingBoxKey.dailyExpWatch, defaultValue: true);
+  static bool get dailyExpShare =>
+      _setting.get(SettingBoxKey.dailyExpShare, defaultValue: true);
+  static bool get dailyExpCoin =>
+      _setting.get(SettingBoxKey.dailyExpCoin, defaultValue: false);
+
   static bool get verticalFeed =>
       _setting.get(SettingBoxKey.verticalFeed, defaultValue: true);
 
