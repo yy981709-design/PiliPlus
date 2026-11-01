@@ -504,7 +504,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         _likeCount =
             (_likeCount ?? widget.item.like) + (newVal ? 1 : -1);
       });
-      SmartDialog.showToast(response);
+      SmartDialog.showToast(
+        newVal
+            ? (response.isEmpty ? '点赞成功' : response)
+            : '已取消点赞',
+      );
     } else if (res case Error(:final errMsg)) {
       final msg = errMsg ?? '';
       if (msg.contains('已点赞')) {
@@ -621,13 +625,23 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     }
   }
 
+  void _toggleLandscapeControls() {
+    if (_landscapeControlsVisible) {
+      _landscapeTimer?.cancel();
+      _landscapeTimer = null;
+      setState(() => _landscapeControlsVisible = false);
+    } else {
+      _showLandscapeControls();
+    }
+  }
+
   void _showLandscapeControls() {
     if (!_landscape) return;
     if (!_landscapeControlsVisible) {
       setState(() => _landscapeControlsVisible = true);
     }
     _landscapeTimer?.cancel();
-    _landscapeTimer = Timer(const Duration(seconds: 4), () {
+    _landscapeTimer = Timer(const Duration(seconds: 5), () {
       if (mounted && _landscape) {
         setState(() => _landscapeControlsVisible = false);
       }
@@ -868,10 +882,10 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     final size = MediaQuery.sizeOf(context);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onTap: _togglePlay,
-      onDoubleTap: _toggleLike,
-      onLongPressStart: (_) => _startLongPressSpeed(),
-      onLongPressEnd: (_) => _endLongPressSpeed(),
+      onTap: _landscape ? null : _togglePlay,
+      onDoubleTap: _landscape ? null : _toggleLike,
+      onLongPressStart: _landscape ? null : (_) => _startLongPressSpeed(),
+      onLongPressEnd: _landscape ? null : (_) => _endLongPressSpeed(),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -955,7 +969,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               child: CircularProgressIndicator(color: Colors.white),
             )
           else if (!_playing)
-            const Center(child: _BiliTvPlay()),
+            const _RoundPlayButton(),
           if (!_uiHidden && !_landscape)
             Positioned(
               right: 10,
@@ -1278,124 +1292,158 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   }
 
   Widget _buildLandscapeControls(_VerticalItem item) {
-    if (!_landscapeControlsVisible) {
-      return Positioned.fill(
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: _showLandscapeControls,
-          child: const ColoredBox(color: Colors.transparent),
-        ),
-      );
-    }
     final player = _player;
     final duration = player?.state.duration ?? Duration.zero;
     return Positioned.fill(
-      child: Listener(
-        onPointerDown: (_) => _showLandscapeControls(),
-        child: SafeArea(
-        child: Column(
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => Get.back(),
-                  icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => setState(() => _danmakuOn = !_danmakuOn),
-                  icon: Icon(
-                    _danmakuOn ? Icons.subtitles : Icons.subtitles_off,
-                    color: Colors.white,
-                  ),
-                ),
-                IconButton(
-                  onPressed: _exitLandscape,
-                  icon: const Icon(Icons.fullscreen_exit, color: Colors.white),
-                ),
-              ],
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggleLandscapeControls,
+              child: const ColoredBox(color: Colors.transparent),
             ),
-            const Spacer(),
-            if (!_playing)
-              const Icon(
-                Icons.play_arrow_rounded,
-                size: 64,
-                color: Colors.white70,
-              ),
-            const Spacer(),
-            StreamBuilder<Duration>(
-              stream: player?.stream.position,
-              builder: (context, snapshot) {
-                final position =
-                    snapshot.data ?? player?.state.position ?? Duration.zero;
-                return Container(
-                  padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
-                  color: Colors.black45,
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: _togglePlay,
-                    icon: Icon(
-                      _playing ? Icons.pause : Icons.play_arrow,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    _formatLandscapeTime(position),
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                  Expanded(
-                    child: SizedBox(
-                      height: 24,
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 2,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 5,
-                          ),
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 10,
+          ),
+          IgnorePointer(
+            ignoring: !_landscapeControlsVisible,
+            child: AnimatedOpacity(
+              opacity: _landscapeControlsVisible ? 1 : 0,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Get.back(),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new,
+                            color: Colors.white,
                           ),
                         ),
-                        child: Slider(
-                          value: duration.inMilliseconds > 0
-                              ? (position.inMilliseconds /
-                                        duration.inMilliseconds)
-                                    .clamp(0.0, 1.0)
-                                    .toDouble()
-                              : 0.0,
-                          onChanged: (value) {
-                            player?.seek(
-                              Duration(
-                                milliseconds:
-                                    (duration.inMilliseconds * value).round(),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _viewerText,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () =>
+                              setState(() => _danmakuOn = !_danmakuOn),
+                          icon: Icon(
+                            _danmakuOn
+                                ? Icons.subtitles
+                                : Icons.subtitles_off,
+                            color: Colors.white,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _exitLandscape,
+                          icon: const Icon(
+                            Icons.fullscreen_exit,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (!_playing) const _RoundPlayButton(),
+                    const Spacer(),
+                    StreamBuilder<Duration>(
+                      stream: player?.stream.position,
+                      builder: (context, snapshot) {
+                        final position =
+                            snapshot.data ??
+                            player?.state.position ??
+                            Duration.zero;
+                        return Container(
+                          padding: const EdgeInsets.fromLTRB(4, 2, 12, 2),
+                          color: Colors.black45,
+                          child: Row(
+                            children: [
+                              IconButton(
+                                onPressed: _togglePlay,
+                                icon: Icon(
+                                  _playing ? Icons.pause : Icons.play_arrow,
+                                  color: Colors.white,
+                                ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
+                              Text(
+                                _formatLandscapeTime(position),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                ),
+                              ),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 24,
+                                  child: SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      trackHeight: 2,
+                                      thumbShape:
+                                          const RoundSliderThumbShape(
+                                            enabledThumbRadius: 5,
+                                          ),
+                                      overlayShape:
+                                          const RoundSliderOverlayShape(
+                                            overlayRadius: 10,
+                                          ),
+                                    ),
+                                    child: Slider(
+                                      value: duration.inMilliseconds > 0
+                                          ? (position.inMilliseconds /
+                                                    duration.inMilliseconds)
+                                                .clamp(0.0, 1.0)
+                                                .toDouble()
+                                          : 0.0,
+                                      onChanged: (value) {
+                                        player?.seek(
+                                          Duration(
+                                            milliseconds:
+                                                (duration.inMilliseconds *
+                                                        value)
+                                                    .round(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                _formatLandscapeTime(duration),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                  Text(
-                    _formatLandscapeTime(duration),
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                ],
+                  ],
+                ),
               ),
-                );
-              },
             ),
-          ],
-        ),
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2012,6 +2060,30 @@ class _BiliTvPlay extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RoundPlayButton extends StatelessWidget {
+  const _RoundPlayButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 68,
+        height: 68,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white30),
+        ),
+        child: const Icon(
+          Icons.play_arrow_rounded,
+          color: Colors.white,
+          size: 40,
+        ),
       ),
     );
   }
