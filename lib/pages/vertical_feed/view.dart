@@ -9,6 +9,7 @@ import 'package:PiliPlus/grpc/dm.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/danmaku.dart';
+import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
@@ -303,8 +304,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   int? _coinCount;
   bool _likeLoading = false;
   bool _playing = true;
+  bool _zoomed = false;
+  final TransformationController _transformController = TransformationController();
   String? _avatar;
   bool _followed = false;
+  bool _favorited = false;
   bool _followLoading = false;
 
   @override
@@ -342,6 +346,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   void dispose() {
     _completedSub?.cancel();
     _playingSub?.cancel();
+    _transformController.dispose();
     _player?.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -374,6 +379,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         _liked = response.like ?? false;
         _disliked = response.dislike ?? false;
         _followed = response.attention ?? false;
+        _favorited = response.favorite ?? false;
         if (mounted) setState(() {});
       }
     } catch (_) {}
@@ -482,6 +488,53 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       SmartDialog.showToast(errMsg ?? '操作失败');
     } else {
       SmartDialog.showToast('点赞失败');
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    if (_favorited) {
+      final res = await FavHttp.unfavAll(
+        rid: widget.item.aid,
+        type: 2,
+      );
+      if (res.isSuccess) {
+        setState(() {
+          _favorited = false;
+          _favoriteCount = ((_favoriteCount ?? 1) - 1).clamp(0, 1 << 30).toInt();
+        });
+      } else {
+        SmartDialog.showToast('取消收藏失败');
+      }
+      return;
+    }
+    final folders = await FavHttp.userfavFolder(
+      pn: 1,
+      ps: 50,
+      mid: Accounts.main.mid,
+    );
+    if (folders case Success(:final response)) {
+      final list = response.list;
+      if (list == null || list.isEmpty) {
+        SmartDialog.showToast('没有可用收藏夹');
+        return;
+      }
+      final res = await FavHttp.favVideo(
+        resources: widget.item.aid.toString(),
+        addIds: list.first.id.toString(),
+      );
+      if (res.isSuccess) {
+        setState(() {
+          _favorited = true;
+          _favoriteCount = (_favoriteCount ?? 0) + 1;
+        });
+        SmartDialog.showToast('已收藏到「${list.first.title}」');
+      } else {
+        SmartDialog.showToast('收藏失败');
+      }
     }
   }
 
@@ -770,10 +823,28 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           const ColoredBox(color: Colors.black38),
           if (_videoController != null)
-            Video(
-              controller: _videoController!,
-              fit: BoxFit.contain,
-              controls: (state) => const SizedBox.shrink(),
+            Transform.translate(
+              offset: const Offset(0, -24),
+              child: InteractiveViewer(
+                transformationController: _transformController,
+                minScale: 1,
+                maxScale: 3,
+                panEnabled: _zoomed,
+                scaleEnabled: true,
+                boundaryMargin: const EdgeInsets.all(80),
+                onInteractionUpdate: (_) {
+                  final zoomed =
+                      _transformController.value.getMaxScaleOnAxis() > 1.01;
+                  if (zoomed != _zoomed) {
+                    setState(() => _zoomed = zoomed);
+                  }
+                },
+                child: Video(
+                  controller: _videoController!,
+                  fit: BoxFit.contain,
+                  controls: (state) => const SizedBox.shrink(),
+                ),
+              ),
             ),
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -789,7 +860,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           if (!_uiHidden)
             Positioned(
               left: 4,
-              top: MediaQuery.paddingOf(context).top + 12,
+              top: MediaQuery.paddingOf(context).top,
               child: Row(
                 children: [
                   IconButton(
@@ -818,7 +889,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           if (!_uiHidden)
             Positioned(
               right: 4,
-              top: MediaQuery.paddingOf(context).top + 12,
+              top: MediaQuery.paddingOf(context).top,
               child: Row(
                 children: [
                   IconButton(
@@ -867,10 +938,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   onTap: _openComments,
                 ),
                 _action(
-                  icon: Icons.star_border,
+                  icon: _favorited ? Icons.star : Icons.star_border,
                   label: '收藏',
                   count: _favoriteCount ?? 0,
-                  onTap: _openDetail,
+                  active: _favorited,
+                  onTap: _toggleFavorite,
                 ),
                 _action(
                   icon: Icons.share_outlined,
@@ -1631,11 +1703,15 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
   StreamSubscription<bool>? _playingSub;
   int _lastPosition = -1;
   bool _ready = false;
+  bool _showScreen = false;
 
   @override
   void initState() {
     super.initState();
     _positionSub = widget.player.stream.position.listen(_onPosition);
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) setState(() => _showScreen = true);
+    });
     _playingSub = widget.player.stream.playing.listen((playing) {
       if (playing) {
         _controller?.resume();
@@ -1697,16 +1773,13 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_showScreen) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) => DanmakuScreen<DanmakuExtra>(
         createdController: (controller) {
           _controller = controller;
-          Future.delayed(const Duration(milliseconds: 350), () {
-            if (!mounted) return;
-            _lastPosition = -1;
-            _ready = true;
-            setState(() {});
-          });
+          _lastPosition = -1;
+          _ready = true;
           if (widget.player.state.playing) {
             controller.resume();
           } else {
