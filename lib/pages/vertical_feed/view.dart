@@ -236,8 +236,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   Player? _player;
   VideoController? _videoController;
   StreamSubscription<bool>? _completedSub;
-  StreamSubscription<int>? _widthSub;
-  StreamSubscription<int>? _heightSub;
   bool _loading = false;
   bool _liked = false;
   bool _disliked = false;
@@ -288,8 +286,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   @override
   void dispose() {
     _completedSub?.cancel();
-    _widthSub?.cancel();
-    _heightSub?.cancel();
     _player?.dispose();
     SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -335,12 +331,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       );
       await player.open(Media(mediaUrl), play: play && widget.active);
       _landscapeWork = player.state.width > player.state.height;
-      _widthSub = player.stream.width.listen((_) {
-        if (mounted) setState(() {});
-      });
-      _heightSub = player.stream.height.listen((_) {
-        if (mounted) setState(() {});
-      });
       _completedSub = player.stream.completed.listen((completed) {
         if (completed && mounted && widget.active) widget.onCompleted();
       });
