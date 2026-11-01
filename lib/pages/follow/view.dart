@@ -10,6 +10,7 @@ import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/follow/child/child_controller.dart';
 import 'package:PiliPlus/pages/follow/child/child_view.dart';
 import 'package:PiliPlus/pages/follow/controller.dart';
+import 'package:PiliPlus/pages/follow/batch_unfollow.dart';
 import 'package:PiliPlus/pages/follow_tag_sort/view.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
@@ -129,6 +130,17 @@ class _FollowPageState extends State<FollowPage>
             PopupMenuButton(
               icon: const Icon(Icons.more_vert),
               itemBuilder: (context) => [
+                PopupMenuItem(
+                  onTap: () => Get.to(() => const FollowBatchPage()),
+                  child: const Row(
+                    spacing: 10,
+                    mainAxisSize: .min,
+                    children: [
+                      Icon(Icons.manage_accounts_outlined, size: 19),
+                      Text('批量取消关注'),
+                    ],
+                  ),
+                ),
                 PopupMenuItem(
                   onTap: () => Get.toNamed('/blackListPage'),
                   child: const Row(

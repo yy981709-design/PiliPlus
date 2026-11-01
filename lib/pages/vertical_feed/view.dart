@@ -1362,7 +1362,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ],
                     ),
                     const Spacer(),
-                    if (!_playing) const _RoundPlayButton(),
                     const Spacer(),
                     StreamBuilder<Duration>(
                       stream: player?.stream.position,
