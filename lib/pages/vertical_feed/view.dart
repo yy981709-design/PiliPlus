@@ -843,7 +843,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           if (!_uiHidden)
             Positioned(
               right: 10,
-              bottom: 60,
+              bottom: 48,
               child: Column(
               children: [
                 _action(
@@ -859,17 +859,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   count: _coinCount ?? 0,
                   onTap: _showCoin,
                 ),
+
                 _action(
                   icon: Icons.chat_bubble_outline,
                   label: '评论',
                   count: _commentCount ?? 0,
                   onTap: _openComments,
-                ),
-                _action(
-                  icon: _disliked ? Icons.block : Icons.do_not_disturb_alt,
-                  label: '不喜欢',
-                  active: _disliked,
-                  onTap: _toggleDislike,
                 ),
                 _action(
                   icon: Icons.star_border,
@@ -987,7 +982,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             Positioned(
               left: 12,
               right: 12,
-              bottom: 50,
+              bottom: 44,
               child: StreamBuilder<Duration>(
                 stream: _player!.stream.position,
                 builder: (context, snapshot) {
@@ -1151,7 +1146,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     final vw = player.state.width.toDouble();
     final vh = player.state.height.toDouble();
     final Widget layer = Padding(
-      padding: const EdgeInsets.only(top: 60),
+      padding: const EdgeInsets.only(top: 8),
       child: IgnorePointer(
         child: _DanmakuLayer(
           player: player,
@@ -1635,6 +1630,7 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<bool>? _playingSub;
   int _lastPosition = -1;
+  bool _ready = false;
 
   @override
   void initState() {
@@ -1676,7 +1672,7 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
 
   void _onPosition(Duration position) {
     final controller = _controller;
-    if (controller == null) return;
+    if (controller == null || !_ready) return;
     final ms = position.inMilliseconds;
     final segment = DmUtils.calcSegment(ms);
     _ensureSegment(segment);
@@ -1705,6 +1701,11 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
       builder: (context, constraints) => DanmakuScreen<DanmakuExtra>(
         createdController: (controller) {
           _controller = controller;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _ready = true;
+            setState(() {});
+          });
           if (widget.player.state.playing) {
             controller.resume();
           } else {
