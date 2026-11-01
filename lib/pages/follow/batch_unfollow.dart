@@ -130,6 +130,14 @@ class _FollowBatchPageState extends State<FollowBatchPage> {
 
   Future<void> _unfollowSelected() async {
     if (_selected.isEmpty || _processing) return;
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    if (Accounts.main.csrf.isEmpty) {
+      SmartDialog.showToast('登录状态异常，请重新登录');
+      return;
+    }
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -150,27 +158,53 @@ class _FollowBatchPageState extends State<FollowBatchPage> {
     if (confirm != true) return;
     setState(() => _processing = true);
     var ok = 0;
-    String? firstError;
+    final errors = <String>[];
+    final names = {for (final u in _all) u.mid: u.uname ?? u.mid.toString()};
     for (final mid in _selected.toList()) {
-      final res = await VideoHttp.relationMod(
-        mid: mid,
-        act: 2,
-        reSrc: 11,
-      );
-      if (res.isSuccess) {
-        ok++;
-      } else if (firstError == null) {
-        firstError = res.toString();
+      try {
+        final res = await VideoHttp.relationMod(mid: mid, act: 2, reSrc: 11);
+        if (res.isSuccess) {
+          ok++;
+        } else {
+          errors.add('${names[mid] ?? mid}: $res');
+        }
+      } catch (e) {
+        errors.add('${names[mid] ?? mid}: $e');
       }
+      await Future.delayed(const Duration(milliseconds: 150));
     }
     _selected.clear();
     _processing = false;
-    SmartDialog.showToast(
-      firstError == null
-          ? '已取消关注 $ok 位'
-          : '成功 $ok 位，失败：$firstError',
+    if (mounted) setState(() {});
+    if (errors.isEmpty) {
+      SmartDialog.showToast('已取消关注 $ok 位');
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('完成：成功 $ok 位，失败 ${errors.length} 位'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final error in errors.take(8))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(error, style: const TextStyle(fontSize: 12)),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
     );
-    setState(() {});
   }
 
   @override
