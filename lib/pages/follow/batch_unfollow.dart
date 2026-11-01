@@ -50,7 +50,7 @@ class _FollowBatchPageState extends State<FollowBatchPage> {
       );
       if (res case Success(:final response)) {
         final list = response.list ?? const <FollowItemModel>[];
-        _all.addAll(list);
+        _all.addAll(list.where((e) => e.mid > 0));
         if (list.length < 20) break;
       } else {
         _error = res.toString();
@@ -150,13 +150,26 @@ class _FollowBatchPageState extends State<FollowBatchPage> {
     if (confirm != true) return;
     setState(() => _processing = true);
     var ok = 0;
+    String? firstError;
     for (final mid in _selected.toList()) {
-      final res = await VideoHttp.relationMod(mid: mid, act: 2, reSrc: 14);
-      if (res.isSuccess) ok++;
+      final res = await VideoHttp.relationMod(
+        mid: mid,
+        act: 2,
+        reSrc: 11,
+      );
+      if (res.isSuccess) {
+        ok++;
+      } else if (firstError == null) {
+        firstError = res.toString();
+      }
     }
     _selected.clear();
     _processing = false;
-    SmartDialog.showToast('已取消关注 $ok 位');
+    SmartDialog.showToast(
+      firstError == null
+          ? '已取消关注 $ok 位'
+          : '成功 $ok 位，失败：$firstError',
+    );
     setState(() {});
   }
 
