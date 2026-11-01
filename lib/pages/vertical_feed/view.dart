@@ -87,9 +87,9 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
     if (_loading || !_hasMore) return;
     final oldLength = _items.length;
     final wasAtEnd = _index >= oldLength;
+    var added = 0;
     _loading = true;
     try {
-      var added = 0;
       for (var attempt = 0; attempt < 8; attempt++) {
         final res = await VideoHttp.rcmdVideoListApp(freshIdx: _page);
         _page++;
@@ -465,8 +465,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         _likeCount = (_likeCount ?? widget.item.like) + (_liked ? 1 : -1);
       });
       SmartDialog.showToast(response);
-    } else if (res case Error(:final message)) {
-      SmartDialog.showToast(message);
+    } else if (res case Error(:final errMsg)) {
+      SmartDialog.showToast(errMsg ?? '操作失败');
     } else {
       SmartDialog.showToast('点赞失败');
     }
@@ -504,8 +504,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         _coinCount = (_coinCount ?? 0) + count;
       });
       SmartDialog.showToast('投币成功');
-    } else if (res case Error(:final message)) {
-      SmartDialog.showToast(message);
+    } else if (res case Error(:final errMsg)) {
+      SmartDialog.showToast(errMsg ?? '操作失败');
     } else {
       SmartDialog.showToast('投币失败');
     }
