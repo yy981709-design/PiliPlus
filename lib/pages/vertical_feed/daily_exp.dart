@@ -244,9 +244,12 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
 }
 
 void showDailyExpSheet({String? bvid, int? aid}) {
-  Get.bottomSheet(
-    DailyExpSheet(bvid: bvid, aid: aid),
+  final context = Get.context;
+  if (context == null) return;
+  showModalBottomSheet<void>(
+    context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
+    builder: (_) => DailyExpSheet(bvid: bvid, aid: aid),
   );
 }
