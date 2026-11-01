@@ -540,13 +540,18 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           if (!_uiHidden)
             Positioned(
-              right: 12,
+              right: 10,
               top: MediaQuery.paddingOf(context).top + 8,
-            child: IconButton(
-              onPressed: _openDetail,
-              icon: const Icon(Icons.open_in_new, color: Colors.white),
+              child: IconButton(
+                tooltip: _danmakuOn ? '关闭弹幕' : '开启弹幕',
+                onPressed: () => setState(() => _danmakuOn = !_danmakuOn),
+                icon: Icon(
+                  _danmakuOn ? Icons.subtitles : Icons.subtitles_off,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
             ),
-          ),
           if (!widget.active || _loading)
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
@@ -554,8 +559,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           if (!_uiHidden)
             Positioned(
               right: 10,
-              bottom: 160,
-            child: Column(
+              bottom: 120,
+              child: Column(
               children: [
                 _action(
                   icon: _liked ? Icons.favorite : Icons.favorite_border,
@@ -595,80 +600,77 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           ),
           if (!_uiHidden)
             Positioned(
-              right: 12,
-              bottom: 54,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: _danmakuOn ? '关闭弹幕' : '开启弹幕',
-                    onPressed: () => setState(() => _danmakuOn = !_danmakuOn),
-                    icon: Icon(
-                      _danmakuOn ? Icons.subtitles : Icons.subtitles_off,
-                      color: Colors.white70,
-                      size: 20,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _openDetail,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      minimumSize: const Size(0, 30),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    child: const Text(
-                      '详情页',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: _landscapeWork ? '横屏' : '隐藏界面',
-                    onPressed: _toggleScreen,
-                    icon: Icon(
-                      _landscapeWork
-                          ? Icons.screen_rotation
-                          : Icons.fullscreen,
-                      color: Colors.white70,
-                      size: 22,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (!_uiHidden)
-            Positioned(
               left: 12,
               right: 12,
-              bottom: 10,
-            child: InkWell(
-              onTap: _sendDanmaku,
-              borderRadius: BorderRadius.circular(20),
+              bottom: 8,
               child: Container(
-                height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                height: 30,
+                padding: const EdgeInsets.only(left: 10, right: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.edit_outlined, color: Colors.white70, size: 17),
-                    SizedBox(width: 8),
-                    Text(
-                      '发弹幕...',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    Expanded(
+                      child: InkWell(
+                        onTap: _sendDanmaku,
+                        borderRadius: BorderRadius.circular(15),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.edit_outlined,
+                              color: Colors.white70,
+                              size: 14,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              '发弹幕...',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    Spacer(),
-                    Icon(
-                      Icons.emoji_emotions_outlined,
-                      color: Colors.white70,
-                      size: 19,
+                    IconButton(
+                      tooltip: '详情页',
+                      visualDensity: VisualDensity.compact,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(26, 26),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: _openDetail,
+                      icon: const Icon(
+                        Icons.info_outline,
+                        color: Colors.white70,
+                        size: 17,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: _landscapeWork ? '横屏' : '隐藏界面',
+                      visualDensity: VisualDensity.compact,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(26, 26),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: _toggleScreen,
+                      icon: Icon(
+                        _landscapeWork
+                            ? Icons.screen_rotation
+                            : Icons.fullscreen,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
           if (!_uiHidden && _player != null)
             Positioned(
               left: 0,
@@ -694,8 +696,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             Positioned(
               left: 16,
               right: 84,
-              bottom: 112,
-            child: Column(
+              bottom: 76,
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -1268,19 +1270,38 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
 
   Future<void> _load() async {
     try {
-      final res = await Request().get(
-        'https://api.bilibili.com/x/v1/dm/list.so',
-        queryParameters: {'oid': widget.cid},
-        options: Options(
-          responseType: ResponseType.plain,
-          headers: {
-            'referer': 'https://www.bilibili.com',
-            'user-agent': BrowserUa.pc,
-          },
-        ),
-      );
-      final data = res.data;
-      final xml = data is String ? data : data.toString();
+      String xml = '';
+      try {
+        final res = await Request().get(
+          'https://api.bilibili.com/x/v1/dm/list.so',
+          queryParameters: {'oid': widget.cid, 'type': 1},
+          options: Options(
+            responseType: ResponseType.plain,
+            headers: {
+              'referer': 'https://www.bilibili.com',
+              'user-agent': BrowserUa.pc,
+            },
+          ),
+        );
+        final data = res.data;
+        xml = data is String ? data : data.toString();
+      } catch (_) {}
+      if (!xml.contains('<d p=')) {
+        try {
+          final res = await Request().get(
+            'https://comment.bilibili.com/${widget.cid}.xml',
+            options: Options(
+              responseType: ResponseType.plain,
+              headers: {
+                'referer': 'https://www.bilibili.com',
+                'user-agent': BrowserUa.pc,
+              },
+            ),
+          );
+          final data = res.data;
+          xml = data is String ? data : data.toString();
+        } catch (_) {}
+      }
       final matches = RegExp(
         r'<d p="([^"]*)"[^>]*>(.*?)</d>',
         dotAll: true,
