@@ -1068,6 +1068,27 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ],
             ),
           ),
+          if (!_landscape)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 96,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.85),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (!_uiHidden && !_landscape)
             Positioned(
               left: 12,
@@ -1108,11 +1129,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   ),
                   const SizedBox(width: 10),
                   Container(
-                    height: 40,
+                    height: 34,
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(17),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1123,8 +1144,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                           borderRadius: BorderRadius.circular(18),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            width: 36,
-                            height: 40,
+                            width: 32,
+                            height: 34,
                             decoration: BoxDecoration(
                               color: _danmakuOn
                                   ? primary.withValues(alpha: 0.18)
@@ -1189,7 +1210,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             Positioned(
               left: 12,
               right: 12,
-              bottom: 44,
+              bottom: 50,
               child: StreamBuilder<Duration>(
                 stream: _player!.stream.position,
                 builder: (context, snapshot) {
