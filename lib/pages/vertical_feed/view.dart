@@ -1009,7 +1009,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               child: CircularProgressIndicator(color: Colors.white),
             )
           else if (!_playing)
-            const _RoundPlayButton(),
+            _buildBiliPauseOverlay(),
           if (!_uiHidden && !_landscape)
             Positioned(
               right: 10,
@@ -1329,6 +1329,61 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         ),
       ),
     );
+  }
+
+  Widget _buildBiliPauseOverlay() {
+    final player = _player;
+    final position = player?.state.position ?? Duration.zero;
+    final duration = player?.state.duration ?? Duration.zero;
+    return Positioned.fill(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _togglePlay,
+              child: Container(
+                width: 84,
+                height: 84,
+                decoration: BoxDecoration(
+                  color: const Color(0x5538BDF8),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  size: 58,
+                  color: Color(0xCC168FE5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              '${_biliTime(position)} / ${_biliTime(duration)}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                shadows: [
+                  Shadow(color: Colors.black54, blurRadius: 5),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _biliTime(Duration d) {
+    final total = d.inSeconds;
+    final hours = total ~/ 3600;
+    final minutes = (total % 3600) ~/ 60;
+    final seconds = total % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   Widget _buildLandscapeControls(_VerticalItem item) {
