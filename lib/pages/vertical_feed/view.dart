@@ -9,6 +9,7 @@ import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/emote/view.dart';
 import 'package:PiliPlus/models_new/emote/emote.dart';
 import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
+import 'package:PiliPlus/pages/vertical_feed/video_notes.dart';
 import 'package:PiliPlus/pages/vertical_feed/comment_detail.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/danmaku.dart';
@@ -828,6 +829,23 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               onChanged: (value) {
                 Navigator.pop(context);
                 setState(() => _autoNext = value);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bookmark_add_outlined, color: Colors.white70),
+              title: const Text('时间戳笔记', style: TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                final ctx = Get.context;
+                Navigator.pop(context);
+                final player = _player;
+                if (ctx != null && player != null) {
+                  showVideoNotesSheet(
+                    ctx,
+                    bvid: widget.item.bvid,
+                    player: player,
+                  );
+                }
               },
             ),
             ListTile(
