@@ -1012,9 +1012,18 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           if (!widget.active || _loading)
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
-            )
-          else if (!_playing)
-            _buildBiliPauseOverlay(),
+            ),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: _playing || _loading || !widget.active,
+              child: AnimatedOpacity(
+                opacity: (!_playing && !_loading && widget.active) ? 1 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: _buildBiliPauseContent(),
+              ),
+            ),
+          ),
           if (!_uiHidden && !_landscape)
             Positioned(
               right: 10,
@@ -1099,11 +1108,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   ),
                   const SizedBox(width: 10),
                   Container(
-                    height: 34,
+                    height: 40,
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(17),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1111,17 +1120,28 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                         InkWell(
                           onTap: () =>
                               setState(() => _danmakuOn = !_danmakuOn),
-                          borderRadius: BorderRadius.circular(15),
-                          child: const SizedBox(
-                            width: 30,
-                            height: 34,
+                          borderRadius: BorderRadius.circular(18),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 36,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: _danmakuOn
+                                  ? primary.withValues(alpha: 0.18)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
                             child: Center(
-                              child: Text(
-                                '弹',
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 200),
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
+                                  color: _danmakuOn
+                                      ? primary
+                                      : Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
+                                child: const Text('弹'),
                               ),
                             ),
                           ),
@@ -1130,7 +1150,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                           tooltip: '详情页',
                           visualDensity: VisualDensity.compact,
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(30, 30),
+                            minimumSize: const Size(36, 40),
                             padding: EdgeInsets.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -1138,7 +1158,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                           icon: const Icon(
                             Icons.info_outline,
                             color: Colors.white70,
-                            size: 19,
+                            size: 21,
                           ),
                         ),
                         IconButton(
@@ -1146,7 +1166,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                               _landscapeWork ? '横屏模式' : '隐藏界面',
                           visualDensity: VisualDensity.compact,
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(30, 30),
+                            minimumSize: const Size(36, 40),
                             padding: EdgeInsets.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -1156,7 +1176,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                                 ? Icons.screen_rotation
                                 : Icons.fullscreen,
                             color: Colors.white70,
-                            size: 20,
+                            size: 22,
                           ),
                         ),
                       ],
@@ -1343,13 +1363,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
     );
   }
 
-  Widget _buildBiliPauseOverlay() {
+  Widget _buildBiliPauseContent() {
     final player = _player;
     final position = player?.state.position ?? Duration.zero;
     final duration = player?.state.duration ?? Duration.zero;
-    return Positioned.fill(
-      child: Center(
-        child: Column(
+    return Center(
+      child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             GestureDetector(
@@ -1381,8 +1400,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 ],
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

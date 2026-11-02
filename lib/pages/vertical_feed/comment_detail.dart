@@ -259,9 +259,12 @@ void showCommentDetailSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => SizedBox(
-      height: MediaQuery.sizeOf(context).height * 0.72,
-      child: CommentDetailPage(comment: comment, oid: oid),
+    builder: (context) => ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.72,
+        child: CommentDetailPage(comment: comment, oid: oid),
+      ),
     ),
   );
 }
