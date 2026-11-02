@@ -79,9 +79,16 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
           bvid: video.$1,
           aid: video.$2,
         );
-        messages.add(
-          res.isSuccess ? '分享任务完成' : '分享失败：${res.toString()}',
-        );
+        if (!res.isSuccess) {
+          messages.add('分享失败：${res.toString()}');
+        } else {
+          final check = await DailyExpHttp.reward();
+          final done =
+              check case Success(:final response) ? response.share == true : false;
+          messages.add(
+            done ? '分享任务完成' : '分享接口成功，但经验状态未更新，可能需要在 App 内实际分享',
+          );
+        }
       }
     }
     if (_enableCoin && (_status?.coins ?? 0) < 50) {

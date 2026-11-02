@@ -40,6 +40,10 @@ abstract final class DailyExpHttp {
         'bvid': bvid,
         if (aid != null) 'aid': aid,
         'csrf': Accounts.main.csrf,
+        'source': 'web_normal',
+        'eab_x': 2,
+        'ramval': 0,
+        'ga': 1,
       },
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
