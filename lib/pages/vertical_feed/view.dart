@@ -9,6 +9,7 @@ import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/emote/view.dart';
 import 'package:PiliPlus/models_new/emote/emote.dart';
 import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
+import 'package:PiliPlus/pages/vertical_feed/danmaku_composer.dart';
 import 'package:PiliPlus/pages/vertical_feed/video_notes.dart';
 import 'package:PiliPlus/pages/vertical_feed/comment_detail.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -302,6 +303,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _landscapeControlsVisible = true;
   Timer? _landscapeTimer;
   bool _uiHidden = false;
+  bool _speedBoosting = false;
+  final GlobalKey<_DanmakuLayerState> _danmakuKey = GlobalKey();
   bool _danmakuOn = true;
   bool _autoNext = true;
   int? _likeCount;
@@ -403,10 +406,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   void _startLongPressSpeed() {
     _rateBeforeLongPress = _player?.state.rate ?? 1.0;
     _player?.setRate(2.0);
+    if (mounted) setState(() => _speedBoosting = true);
   }
 
   void _endLongPressSpeed() {
     _player?.setRate(_rateBeforeLongPress);
+    if (mounted) setState(() => _speedBoosting = false);
   }
 
   Future<void> _initPlayer({bool play = true}) async {
@@ -1027,6 +1032,54 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ),
             ),
           if (_landscape) _buildLandscapeControls(item),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 58,
+            right: 16,
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: _speedBoosting ? 1 : 0,
+                child: AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  scale: _speedBoosting ? 1 : 0.9,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.play_arrow,
+                          size: 16,
+                          color: Colors.white70,
+                        ),
+                        Icon(
+                          Icons.play_arrow,
+                          size: 13,
+                          color: Colors.white38,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          '倍速中',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           if (!widget.active || _loading)
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
@@ -1395,6 +1448,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       bottom: 120,
       child: IgnorePointer(
         child: _DanmakuLayer(
+          key: _danmakuKey,
           player: _player!,
           cid: item.cid,
         ),
@@ -1671,41 +1725,22 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       SmartDialog.showToast('请先登录');
       return;
     }
-    final controller = TextEditingController();
-    final text = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('发弹幕'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 100,
-          decoration: const InputDecoration(hintText: '发一条弹幕...'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('发送'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (text == null || text.isEmpty) return;
+    final draft = await showDanmakuComposer(context);
+    if (draft == null) return;
     final res = await DanmakuHttp.shootDanmaku(
       oid: widget.item.cid,
       bvid: widget.item.bvid,
-      msg: text,
+      msg: draft.text,
+      mode: draft.mode,
+      color: draft.color,
+      fontSize: draft.fontSize,
       progress: _player?.state.position.inMilliseconds ?? 0,
     );
     if (res.isSuccess) {
+      _danmakuKey.currentState?.addSelf(draft);
       SmartDialog.showToast('弹幕已发送');
     } else {
-      SmartDialog.showToast('发送失败');
+      SmartDialog.showToast('发送失败：${res.toString()}');
     }
   }
 
@@ -2313,7 +2348,7 @@ Future<String?> _resolveVerticalMedia(_VerticalItem item) async {
 }
 
 class _DanmakuLayer extends StatefulWidget {
-  const _DanmakuLayer({required this.player, required this.cid});
+  const _DanmakuLayer({super.key, required this.player, required this.cid});
 
   final Player player;
   final int cid;
@@ -2328,6 +2363,7 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
   DanmakuController<DanmakuExtra>? _controller;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<bool>? _playingSub;
+  StreamSubscription<double>? _rateSub;
   int _lastPosition = -1;
   bool _ready = false;
   bool _showScreen = false;
@@ -2338,6 +2374,11 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
     _positionSub = widget.player.stream.position.listen(_onPosition);
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) setState(() => _showScreen = true);
+    });
+    _rateSub = widget.player.stream.rate.listen((rate) {
+      _controller?.updateOption(
+        DanmakuOptions.get(notFullscreen: false, speed: rate),
+      );
     });
     _playingSub = widget.player.stream.playing.listen((playing) {
       if (playing) {
@@ -2352,9 +2393,23 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
   void dispose() {
     _positionSub?.cancel();
     _playingSub?.cancel();
+    _rateSub?.cancel();
     _segments.clear();
     _requested.clear();
     super.dispose();
+  }
+
+  void addSelf(DanmakuDraft draft) {
+    _controller?.addDanmaku(
+      DanmakuContentItem(
+        draft.text,
+        color: Color(0xFF000000 | draft.color),
+        type: draft.mode == 5
+            ? DanmakuItemType.top
+            : DanmakuItemType.scroll,
+        selfSend: true,
+      ),
+    );
   }
 
   Future<void> _ensureSegment(int segment) async {
@@ -2413,7 +2468,10 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
             controller.pause();
           }
         },
-        option: DanmakuOptions.get(notFullscreen: false, speed: 1.0),
+        option: DanmakuOptions.get(
+          notFullscreen: false,
+          speed: widget.player.state.rate,
+        ),
         size: Size(constraints.maxWidth, constraints.maxHeight),
       ),
     );
