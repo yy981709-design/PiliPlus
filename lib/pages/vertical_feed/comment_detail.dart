@@ -4,6 +4,7 @@ import 'package:PiliPlus/models_new/reply/content.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -156,17 +157,31 @@ class _CommentDetailPageState extends State<CommentDetailPage> {
               const SizedBox(height: 4),
               _buildMessage(reply.content, main: main),
               _buildPictures(reply.content),
-              if ((reply.like ?? 0) > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '${reply.like} 赞',
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
-                    ),
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    if ((reply.like ?? 0) > 0) ...[
+                      Text(
+                        '${reply.like} 赞',
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 10,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    if (reply.ctime != null)
+                      Text(
+                        DateFormatUtils.dateFormat(reply.ctime),
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 10,
+                        ),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),

@@ -1784,7 +1784,7 @@ class _VerticalCommentsState extends State<_VerticalComments> {
       nextOffset: '',
       type: 1,
       page: _page,
-      sort: _hot ? 1 : 2,
+      sort: _hot ? 1 : 0,
     );
     if (!mounted) return;
     if (res case Success(:final response)) {
@@ -2146,16 +2146,31 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                                 _buildMessage(reply.content),
                                 _buildPictures(reply.content),
                                 _buildReplies(reply),
-                                if ((reply.like ?? 0) > 0) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${reply.like} 赞',
-                                    style: const TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    if ((reply.like ?? 0) > 0) ...[
+                                      Text(
+                                        '${reply.like} 赞',
+                                        style: const TextStyle(
+                                          color: Colors.white38,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                    ],
+                                    if (reply.ctime != null)
+                                      Text(
+                                        DateFormatUtils.dateFormat(
+                                          reply.ctime,
+                                        ),
+                                        style: const TextStyle(
+                                          color: Colors.white38,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
