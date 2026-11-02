@@ -2398,7 +2398,8 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
   DanmakuController<DanmakuExtra>? _controller;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<bool>? _playingSub;
-  StreamSubscription<double>? _rateSub;
+  Timer? _rateTimer;
+  double _lastRate = 1;
   int _lastPosition = -1;
   bool _ready = false;
   bool _showScreen = false;
@@ -2410,7 +2411,11 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) setState(() => _showScreen = true);
     });
-    _rateSub = widget.player.stream.rate.listen((rate) {
+    _lastRate = widget.player.state.rate;
+    _rateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final rate = widget.player.state.rate;
+      if (rate == _lastRate) return;
+      _lastRate = rate;
       _controller?.updateOption(
         DanmakuOptions.get(notFullscreen: false, speed: rate),
       );
@@ -2428,7 +2433,7 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
   void dispose() {
     _positionSub?.cancel();
     _playingSub?.cancel();
-    _rateSub?.cancel();
+    _rateTimer?.cancel();
     _segments.clear();
     _requested.clear();
     super.dispose();
