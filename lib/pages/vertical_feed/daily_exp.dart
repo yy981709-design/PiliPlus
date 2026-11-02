@@ -83,8 +83,10 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
           messages.add('分享失败：${res.toString()}');
         } else {
           final check = await DailyExpHttp.reward();
-          final done =
-              check case Success(:final response) ? response.share == true : false;
+          var done = false;
+          if (check case Success(:final response)) {
+            done = response.share == true;
+          }
           messages.add(
             done ? '分享任务完成' : '分享接口成功，但经验状态未更新，可能需要在 App 内实际分享',
           );
