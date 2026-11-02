@@ -294,6 +294,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _layoutSub;
   Timer? _statsTimer;
+  int _lastHeartbeat = 0;
   bool _loading = false;
   bool _liked = false;
   bool _disliked = false;
@@ -455,9 +456,29 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           total: p.state.duration,
           playing: _playing && widget.active,
         );
+        final seconds = p.state.position.inSeconds;
+        if (widget.active &&
+            _playing &&
+            seconds - _lastHeartbeat >= 5) {
+          _lastHeartbeat = seconds;
+          VideoHttp.heartBeat(
+            bvid: widget.item.bvid,
+            cid: widget.item.cid,
+            progress: seconds,
+            videoType: VideoType.ugc,
+          );
+        }
       });
       _playingSub = player.stream.playing.listen((playing) {
         WatchStatsService.instance.onPlaybackStatus(playing);
+        if (!playing && widget.active) {
+          VideoHttp.heartBeat(
+            bvid: widget.item.bvid,
+            cid: widget.item.cid,
+            progress: player.state.position.inSeconds,
+            videoType: VideoType.ugc,
+          );
+        }
         if (mounted) setState(() => _playing = playing);
       });
       _completedSub = player.stream.completed.listen((completed) {
