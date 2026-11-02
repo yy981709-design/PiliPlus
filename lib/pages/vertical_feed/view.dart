@@ -1097,63 +1097,69 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  InkWell(
-                    onTap: () => setState(() => _danmakuOn = !_danmakuOn),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _danmakuOn ? primary : Colors.white24,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '弹',
-                          style: TextStyle(
-                            color: _danmakuOn ? primary : Colors.white,
-                            fontSize: 11,
+                  const SizedBox(width: 10),
+                  Container(
+                    height: 34,
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(17),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: () =>
+                              setState(() => _danmakuOn = !_danmakuOn),
+                          borderRadius: BorderRadius.circular(15),
+                          child: const SizedBox(
+                            width: 30,
+                            height: 34,
+                            child: Center(
+                              child: Text(
+                                '弹',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    tooltip: '详情页',
-                    visualDensity: VisualDensity.compact,
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(30, 30),
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    onPressed: _openDetail,
-                    icon: const Icon(
-                      Icons.info_outline,
-                      color: Colors.white70,
-                      size: 19,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    tooltip: _landscapeWork ? '横屏模式' : '隐藏界面',
-                    visualDensity: VisualDensity.compact,
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(30, 30),
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    onPressed: _toggleScreen,
-                    icon: Icon(
-                      _landscapeWork
-                          ? Icons.screen_rotation
-                          : Icons.fullscreen,
-                      color: Colors.white70,
-                      size: 20,
+                        IconButton(
+                          tooltip: '详情页',
+                          visualDensity: VisualDensity.compact,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(30, 30),
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: _openDetail,
+                          icon: const Icon(
+                            Icons.info_outline,
+                            color: Colors.white70,
+                            size: 19,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip:
+                              _landscapeWork ? '横屏模式' : '隐藏界面',
+                          visualDensity: VisualDensity.compact,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(30, 30),
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: _toggleScreen,
+                          icon: Icon(
+                            _landscapeWork
+                                ? Icons.screen_rotation
+                                : Icons.fullscreen,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -2045,11 +2051,10 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                       final reply = _replies[index];
                       final avatar = reply.member?.avatar;
                       return InkWell(
-                        onTap: () => Get.to(
-                          () => CommentDetailPage(
-                            comment: reply,
-                            oid: widget.aid,
-                          ),
+                        onTap: () => showCommentDetailSheet(
+                          context,
+                          reply,
+                          widget.aid,
                         ),
                         child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,

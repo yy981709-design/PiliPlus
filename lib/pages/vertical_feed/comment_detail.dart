@@ -249,3 +249,19 @@ class _CommentDetailPageState extends State<CommentDetailPage> {
     );
   }
 }
+
+void showCommentDetailSheet(
+  BuildContext context,
+  ReplyItemModel comment,
+  int oid,
+) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.72,
+      child: CommentDetailPage(comment: comment, oid: oid),
+    ),
+  );
+}
