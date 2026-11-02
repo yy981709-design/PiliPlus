@@ -19,6 +19,7 @@ import 'package:PiliPlus/models_new/reply/content.dart';
 import 'package:PiliPlus/models_new/reply/data.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/services/watch_stats_service.dart';
 import 'package:PiliPlus/utils/danmaku_utils.dart';
@@ -1671,6 +1672,8 @@ class _VerticalCommentsState extends State<_VerticalComments> {
   bool _end = false;
   bool _failed = false;
   bool _hot = true;
+  final Map<int, List<ReplyItemModel>> _moreReplies = {};
+  final Set<int> _loadingReplies = {};
 
   @override
   void initState() {
@@ -1709,7 +1712,7 @@ class _VerticalCommentsState extends State<_VerticalComments> {
       context: context,
       backgroundColor: const Color(0xFF17181A),
       builder: (context) => SizedBox(
-        height: 300,
+        height: 250,
         child: EmotePanel(
           onChoose: (Emote emote, double? width, double? height) {
             _inputController.text += emote.text ?? '';
@@ -1824,40 +1827,70 @@ class _VerticalCommentsState extends State<_VerticalComments> {
     );
   }
 
+  Future<void> _loadReplies(ReplyItemModel reply) async {
+    final rpid = reply.rpid;
+    if (rpid == null || _loadingReplies.contains(rpid)) return;
+    _loadingReplies.add(rpid);
+    if (mounted) setState(() {});
+    final loaded = <ReplyItemModel>[];
+    for (var page = 1; page <= 3; page++) {
+      final res = await ReplyHttp.replyReplyList(
+        isLogin: Accounts.main.isLogin,
+        oid: widget.aid,
+        root: rpid,
+        pageNum: page,
+        type: 1,
+      );
+      if (res case Success(:final response)) {
+        final list = response.replies ?? const <ReplyItemModel>[];
+        loaded.addAll(list);
+        if (list.length < 20) break;
+      } else {
+        break;
+      }
+    }
+    _moreReplies[rpid] = loaded;
+    _loadingReplies.remove(rpid);
+    if (mounted) setState(() {});
+  }
+
   Widget _buildReplies(ReplyItemModel reply) {
-    final replies = reply.replies;
-    if (replies == null || replies.isEmpty) return const SizedBox.shrink();
+    final rpid = reply.rpid;
+    final replies = rpid == null ? reply.replies : _moreReplies[rpid];
+    final count = reply.count ?? 0;
+    final hasMore = rpid != null && count > (replies?.length ?? 0);
+    if ((replies == null || replies.isEmpty) && !hasMore) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final sub in replies.take(3))
+          for (final sub in (replies ?? const <ReplyItemModel>[]).take(8))
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    height: 1.4,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${sub.member?.uname ?? '匿名'}：',
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
                   ),
-                  children: [
-                    TextSpan(
-                      text: '${sub.member?.uname ?? '匿名'}：',
-                      style: const TextStyle(color: Colors.white38),
-                    ),
-                    TextSpan(text: sub.content?.message ?? ''),
-                  ],
-                ),
+                  Expanded(child: _buildMessage(sub.content)),
+                ],
               ),
             ),
-          if (reply.count != null && reply.count! > 3)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
+          if (hasMore)
+            TextButton(
+              onPressed: _loadingReplies.contains(rpid)
+                  ? null
+                  : () => _loadReplies(reply),
               child: Text(
-                '共 ${reply.count} 条回复',
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                _loadingReplies.contains(rpid)
+                    ? '加载回复中...'
+                    : '查看全部 $count 条回复',
+                style: const TextStyle(fontSize: 11),
               ),
             ),
         ],
@@ -2008,23 +2041,11 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                                       ),
                                     ),
                                     if (reply.member?.levelInfo?.currentLevel case final level?)
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 6),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 1,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _levelColor(level),
-                                          borderRadius: BorderRadius.circular(3),
-                                        ),
-                                        child: Text(
-                                          'LV$level',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 4),
+                                        child: BiliUtils.levelPicture(
+                                          level,
+                                          height: 11,
                                         ),
                                       ),
                                   ],
