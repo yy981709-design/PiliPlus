@@ -9,6 +9,7 @@ import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/emote/view.dart';
 import 'package:PiliPlus/models_new/emote/emote.dart';
 import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
+import 'package:PiliPlus/pages/vertical_feed/save_video.dart';
 import 'package:PiliPlus/pages/vertical_feed/danmaku_composer.dart';
 import 'package:PiliPlus/pages/vertical_feed/video_notes.dart';
 import 'package:PiliPlus/pages/vertical_feed/comment_detail.dart';
@@ -828,6 +829,19 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   bvid: widget.item.bvid,
                 );
                 SmartDialog.showToast(res.isSuccess ? '已加入稍后再看' : '添加失败');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.save_alt, color: Colors.white70),
+              title: const Text('保存到相册', style: TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                Navigator.pop(context);
+                saveVideoToGallery(
+                  bvid: widget.item.bvid,
+                  cid: widget.item.cid,
+                  title: widget.item.title,
+                );
               },
             ),
             ListTile(

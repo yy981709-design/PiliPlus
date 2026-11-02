@@ -223,6 +223,7 @@ abstract final class VideoHttp {
     required VideoType videoType,
     String? language,
     bool voiceBalance = false,
+    int fnval = 4048,
   }) async {
     final Map<String, dynamic> params;
     Map<String, dynamic>? data;
@@ -239,7 +240,7 @@ abstract final class VideoHttp {
           'cid': cid,
           'qn': qn,
           // 获取所有格式的视频
-          'fnval': 4048,
+          'fnval': fnval,
           'fourk': 1,
           'fnver': 0,
           'voice_balance': voiceBalance ? 1 : 0,
