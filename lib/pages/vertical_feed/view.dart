@@ -9,10 +9,13 @@ import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/emote/view.dart';
 import 'package:PiliPlus/models_new/emote/emote.dart';
 import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
+import 'package:PiliPlus/pages/vertical_feed/comment_detail.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/danmaku.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/reply.dart';
+import 'package:PiliPlus/http/msg.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models_new/reply/content.dart';
@@ -918,6 +921,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final size = MediaQuery.sizeOf(context);
+    final primary = Theme.of(context).colorScheme.primary;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: _landscape ? null : _togglePlay,
@@ -1104,15 +1108,16 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                         color: Colors.black.withValues(alpha: 0.45),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _danmakuOn
-                              ? const Color(0xFFFF6699)
-                              : Colors.white24,
+                          color: _danmakuOn ? primary : Colors.white24,
                         ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
                           '弹',
-                          style: TextStyle(color: Colors.white, fontSize: 11),
+                          style: TextStyle(
+                            color: _danmakuOn ? primary : Colors.white,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ),
@@ -1674,6 +1679,8 @@ class _VerticalCommentsState extends State<_VerticalComments> {
   bool _hot = true;
   final Map<int, List<ReplyItemModel>> _moreReplies = {};
   final Set<int> _loadingReplies = {};
+  Map<String, dynamic>? _pendingPicture;
+  bool _pickingImage = false;
 
   @override
   void initState() {
@@ -1910,6 +1917,38 @@ class _VerticalCommentsState extends State<_VerticalComments> {
     };
   }
 
+  Future<void> _pickImage() async {
+    if (_pickingImage) return;
+    _pickingImage = true;
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
+    if (file == null) {
+      _pickingImage = false;
+      return;
+    }
+    final res = await MsgHttp.uploadBfs(
+      path: file.path,
+      category: 'comment',
+      biz: 'comment',
+    );
+    _pickingImage = false;
+    if (!mounted) return;
+    if (res case Success(:final response)) {
+      setState(() {
+        _pendingPicture = {
+          'img_src': response.imageUrl,
+          'img_width': response.imageWidth ?? 0,
+          'img_height': response.imageHeight ?? 0,
+        };
+      });
+      SmartDialog.showToast('图片已选择，发送评论时一起提交');
+    } else {
+      SmartDialog.showToast('图片上传失败：${res.toString()}');
+    }
+  }
+
   Future<void> _send() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _sending) return;
@@ -1922,10 +1961,12 @@ class _VerticalCommentsState extends State<_VerticalComments> {
       type: 1,
       oid: widget.aid,
       message: text,
+      pictures: _pendingPicture == null ? null : [_pendingPicture],
     );
     _sending = false;
     if (res.isSuccess) {
       _inputController.clear();
+      _pendingPicture = null;
       _page = 1;
       _replies.clear();
       _end = false;
@@ -2003,7 +2044,14 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                       }
                       final reply = _replies[index];
                       final avatar = reply.member?.avatar;
-                      return Row(
+                      return InkWell(
+                        onTap: () => Get.to(
+                          () => CommentDetailPage(
+                            comment: reply,
+                            oid: widget.aid,
+                          ),
+                        ),
+                        child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           ClipOval(
@@ -2068,6 +2116,7 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                             ),
                           ),
                         ],
+                      ),
                       );
                     },
                   ),
@@ -2105,6 +2154,18 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                           vertical: 10,
                         ),
                       ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '图片',
+                    onPressed: _pickingImage ? null : _pickImage,
+                    icon: Icon(
+                      _pendingPicture == null
+                          ? Icons.image_outlined
+                          : Icons.image,
+                      color: _pendingPicture == null
+                          ? Colors.white70
+                          : Theme.of(context).colorScheme.primary,
                     ),
                   ),
                   IconButton(
