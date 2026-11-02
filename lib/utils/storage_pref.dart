@@ -21,6 +21,7 @@ import 'package:PiliPlus/models/common/super_resolution_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
+import 'package:PiliPlus/models/common/video/save_quality.dart';
 import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
@@ -1068,6 +1069,11 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.setSystemBrightness, defaultValue: false);
 
   static String? get downloadPath => _setting.get(SettingBoxKey.downloadPath);
+
+  static SaveVideoQuality get saveVideoQuality => SaveVideoQuality.values[_setting.get(
+    SettingBoxKey.saveVideoQuality,
+    defaultValue: SaveVideoQuality.high.index,
+  )];
 
   static String? get imageSavePath => _setting.get(SettingBoxKey.imageSavePath);
 
