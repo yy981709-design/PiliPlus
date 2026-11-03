@@ -8,7 +8,9 @@ import 'package:PiliPlus/grpc/dm.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/emote/view.dart';
 import 'package:PiliPlus/models_new/emote/emote.dart';
+import 'package:PiliPlus/pages/video/pay_coins/view.dart';
 import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
+import 'package:PiliPlus/pages/vertical_feed/danmaku_settings.dart';
 import 'package:PiliPlus/pages/vertical_feed/save_video.dart';
 import 'package:PiliPlus/pages/vertical_feed/danmaku_composer.dart';
 import 'package:PiliPlus/pages/vertical_feed/video_notes.dart';
@@ -636,38 +638,29 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       SmartDialog.showToast('请先登录');
       return;
     }
-    final count = await showDialog<int>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('投币'),
-        content: const Text('选择投币数量'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, 1),
-            child: const Text('1 币'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, 2),
-            child: const Text('2 币'),
-          ),
-        ],
-      ),
-    );
-    if (count == null) return;
-    final res = await VideoHttp.coinVideo(
-      bvid: widget.item.bvid,
-      multiply: count,
-    );
-    if (res.isSuccess) {
-      setState(() {
-        _coinCount = (_coinCount ?? 0) + count;
-      });
-      SmartDialog.showToast('投币成功');
-    } else if (res case Error(:final errMsg)) {
-      SmartDialog.showToast(errMsg ?? '操作失败');
-    } else {
-      SmartDialog.showToast('投币失败');
+    if ((_coinCount ?? 0) > 0) {
+      SmartDialog.showToast('已经投过币了');
+      return;
     }
+    PayCoinsPage.toPayCoinsPage(
+      hasCoin: (_coinCount ?? 0) > 0,
+      hasCopyright: true,
+      onPayCoin: (coin, coinWithLike) async {
+        final res = await VideoHttp.coinVideo(
+          bvid: widget.item.bvid,
+          multiply: coin,
+          selectLike: coinWithLike ? 1 : 0,
+        );
+        if (res.isSuccess) {
+          if (mounted) {
+            setState(() => _coinCount = (_coinCount ?? 0) + coin);
+          }
+          SmartDialog.showToast('投币成功');
+        } else {
+          SmartDialog.showToast('投币失败：${res.toString()}');
+        }
+      },
+    );
   }
 
   Future<void> _toggleDislike() async {
@@ -934,35 +927,11 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   }
 
   void _showDanmakuSettings() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF1B1C1E),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SwitchListTile(
-              secondary: const Icon(Icons.subtitles, color: Colors.white70),
-              title: const Text('显示弹幕', style: TextStyle(color: Colors.white)),
-              value: _danmakuOn,
-              activeColor: const Color(0xFFFF6699),
-              onChanged: (value) {
-                Navigator.pop(context);
-                setState(() => _danmakuOn = value);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.tune, color: Colors.white70),
-              title: const Text('完整弹幕设置', style: TextStyle(color: Colors.white)),
-              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
-              onTap: () {
-                Navigator.pop(context);
-                _openDetail();
-              },
-            ),
-          ],
-        ),
-      ),
+    showVerticalDanmakuSettings(
+      context,
+      enabled: _danmakuOn,
+      onToggle: (value) => setState(() => _danmakuOn = value),
+      onApply: () => _danmakuKey.currentState?.updateOptions(),
     );
   }
 
@@ -1068,10 +1037,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             ),
           if (_landscape) _buildLandscapeControls(item),
           Positioned(
-            top: MediaQuery.paddingOf(context).top + 58,
-            right: 16,
+            top: MediaQuery.paddingOf(context).top + 96,
+            left: 0,
+            right: 0,
             child: IgnorePointer(
-              child: AnimatedOpacity(
+              child: Center(
+                child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 180),
                 opacity: _speedBoosting ? 1 : 0,
                 child: AnimatedScale(
@@ -1111,6 +1082,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                       ],
                     ),
                   ),
+                ),
                 ),
               ),
             ),
@@ -2437,6 +2409,15 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
     _segments.clear();
     _requested.clear();
     super.dispose();
+  }
+
+  void updateOptions() {
+    _controller?.updateOption(
+      DanmakuOptions.get(
+        notFullscreen: false,
+        speed: widget.player.state.rate,
+      ),
+    );
   }
 
   void addSelf(DanmakuDraft draft) {
