@@ -11,6 +11,7 @@ import 'package:PiliPlus/models_new/emote/emote.dart';
 import 'package:PiliPlus/pages/video/pay_coins/view.dart';
 import 'package:PiliPlus/pages/vertical_feed/daily_exp.dart';
 import 'package:PiliPlus/pages/vertical_feed/danmaku_settings.dart';
+import 'package:PiliPlus/pages/vertical_feed/save_options.dart';
 import 'package:PiliPlus/pages/vertical_feed/save_video.dart';
 import 'package:PiliPlus/pages/vertical_feed/danmaku_composer.dart';
 import 'package:PiliPlus/pages/vertical_feed/video_notes.dart';
@@ -832,12 +833,18 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               leading: const Icon(Icons.save_alt, color: Colors.white70),
               title: const Text('保存到相册', style: TextStyle(color: Colors.white)),
               trailing: const Icon(Icons.chevron_right, color: Colors.white38),
-              onTap: () {
+              onTap: () async {
+                final ctx = Get.context;
                 Navigator.pop(context);
-                saveVideoToGallery(
+                if (ctx == null) return;
+                final options = await showSaveOptions(ctx);
+                if (options == null) return;
+                await saveVideoToGallery(
                   bvid: widget.item.bvid,
                   cid: widget.item.cid,
                   title: widget.item.title,
+                  cover: widget.item.cover,
+                  options: options,
                 );
               },
             ),
@@ -1130,6 +1137,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                   icon: Icons.monetization_on_outlined,
                   label: '投币',
                   count: _coinCount ?? 0,
+                  active: _coinGiven,
                   onTap: _showCoin,
                 ),
                 _action(
@@ -1700,13 +1708,25 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
           width: 58,
           child: Column(
             children: [
-              Icon(
-                icon,
-                color: active ? const Color(0xFFFF6699) : Colors.white,
-                size: 34,
-                shadows: const [
-                  Shadow(color: Colors.black45, blurRadius: 6),
-                ],
+              TweenAnimationBuilder<double>(
+                key: ValueKey('$label-$active'),
+                tween: Tween(begin: active ? 1.35 : 1.0, end: 1.0),
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.elasticOut,
+                builder: (context, scale, child) => Transform.scale(
+                  scale: scale,
+                  child: child,
+                ),
+                child: Icon(
+                  icon,
+                  color: active
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.white,
+                  size: 34,
+                  shadows: const [
+                    Shadow(color: Colors.black45, blurRadius: 6),
+                  ],
+                ),
               ),
               const SizedBox(height: 3),
               Text(

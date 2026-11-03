@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/init.dart';
@@ -6,9 +7,11 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/video/save_file_name.dart';
 import 'package:PiliPlus/models/common/video/save_quality.dart';
+import 'package:PiliPlus/pages/vertical_feed/save_options.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:PiliPlus/services/download_notification.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:dio/dio.dart';
@@ -19,13 +22,42 @@ Future<void> saveVideoToGallery({
   required String bvid,
   required int cid,
   required String title,
+  String? cover,
+  SaveOptions? options,
 }) async {
+  final opt = options ??
+      const SaveOptions(
+        mediaType: SaveMediaType.video,
+        qn: qn,
+        saveCover: false,
+      );
+  await DownloadNotification.init();
   final quality = Pref.saveVideoQuality;
+  if (opt.mediaType == SaveMediaType.audio) {
+    await _saveHighQuality(
+      bvid: bvid,
+      cid: cid,
+      title: title,
+      qn: opt.qn,
+      audioOnly: true,
+      cover: cover,
+      saveCover: opt.saveCover,
+    );
+    return;
+  }
   if (quality == SaveVideoQuality.low) {
     await _saveMp4Direct(bvid: bvid, cid: cid, title: title);
     return;
   }
-  final saved = await _saveHighQuality(bvid: bvid, cid: cid, title: title);
+  final saved = await _saveHighQuality(
+    bvid: bvid,
+    cid: cid,
+    title: title,
+    qn: opt.qn,
+    audioOnly: opt.mediaType == SaveMediaType.audio,
+    cover: cover,
+    saveCover: opt.saveCover,
+  );
   if (!saved) {
     if (quality == SaveVideoQuality.auto) {
       await _saveMp4Direct(bvid: bvid, cid: cid, title: title);
@@ -33,6 +65,27 @@ Future<void> saveVideoToGallery({
       SmartDialog.showToast('高画质保存失败，可在设置中切换为省空间');
     }
   }
+}
+
+Future<void> _saveCover(String? cover, String bvid, String title) async {
+  if (cover == null || cover.isEmpty) return;
+  try {
+    final res = await Request.dio.get<List<int>>(
+      cover,
+      options: Options(
+        responseType: ResponseType.bytes,
+        headers: {'user-agent': BrowserUa.pc},
+      ),
+    );
+    final data = res.data;
+    if (data == null || data.isEmpty) return;
+    await SaverGallery.saveImage(
+      Uint8List.fromList(data),
+      fileName: '${_baseName(bvid, title)}.jpg',
+      albumPath: 'PiliPlus',
+      skipIfExists: false,
+    );
+  } catch (_) {}
 }
 
 String _baseName(String bvid, String title) {
@@ -55,6 +108,10 @@ Future<bool> _saveHighQuality({
   required String bvid,
   required int cid,
   required String title,
+  required int qn,
+  required bool audioOnly,
+  required String? cover,
+  required bool saveCover,
 }) async {
   SmartDialog.showLoading(msg: '正在获取高画质地址...');
   try {
@@ -85,28 +142,53 @@ Future<bool> _saveHighQuality({
       final audioUrl = audio == null
           ? null
           : VideoUtils.getCdnUrl(audio.playUrls, isAudio: true);
+      if (audioOnly && audioUrl == null) {
+        SmartDialog.dismiss();
+        SmartDialog.showToast('该视频没有可用的音频流');
+        return false;
+      }
       final dir = await Directory.systemTemp.createTemp('pili_save_hq_');
       final videoFile = File('${dir.path}/video.m4s');
       final audioFile = File('${dir.path}/audio.m4s');
-      final out = File('${dir.path}/video.mp4');
+      final outName = audioOnly ? 'audio.m4a' : 'video.mp4';
+      final out = File('${dir.path}/$outName');
       SmartDialog.dismiss();
       SmartDialog.showLoading(msg: '正在下载高画质视频...');
+      await DownloadNotification.progress(0, '准备下载...');
       final headers = {
         'referer': 'https://www.bilibili.com/video/$bvid',
         'user-agent': BrowserUa.pc,
       };
-      await Request.dio.download(
-        videoUrl,
-        videoFile.path,
-        options: Options(
-          headers: headers,
-          receiveTimeout: const Duration(minutes: 30),
-        ),
-      );
+      if (!audioOnly) {
+        await Request.dio.download(
+          videoUrl,
+          videoFile.path,
+          onReceiveProgress: (received, total) {
+            if (total > 0) {
+              DownloadNotification.progress(
+                (received * 100 / total).round(),
+                '下载视频中...',
+              );
+            }
+          },
+          options: Options(
+            headers: headers,
+            receiveTimeout: const Duration(minutes: 30),
+          ),
+        );
+      }
       if (audioUrl != null) {
         await Request.dio.download(
           audioUrl,
           audioFile.path,
+          onReceiveProgress: (received, total) {
+            if (total > 0) {
+              DownloadNotification.progress(
+                (received * 100 / total).round(),
+                '下载音频中...',
+              );
+            }
+          },
           options: Options(
             headers: headers,
             receiveTimeout: const Duration(minutes: 30),
@@ -115,7 +197,10 @@ Future<bool> _saveHighQuality({
       }
       SmartDialog.dismiss();
       SmartDialog.showLoading(msg: '正在用 ffmpeg 合并...');
-      final command = audioUrl == null
+      await DownloadNotification.progress(95, '正在合并...');
+      final command = audioOnly
+          ? '-y -i "${audioFile.path}" -vn -c:a copy -movflags +faststart "${out.path}"'
+          : audioUrl == null
           ? '-y -i "${videoFile.path}" -c copy -movflags +faststart "${out.path}"'
           : '-y -i "${videoFile.path}" -i "${audioFile.path}" -map 0:v:0 -map 1:a:0? -c copy -movflags +faststart "${out.path}"';
       final session = await FFmpegKit.execute(command);
@@ -125,6 +210,7 @@ Future<bool> _saveHighQuality({
           await out.length() > 1024;
       if (!ok) {
         final output = await session.getOutput() ?? '';
+        await DownloadNotification.cancel();
         SmartDialog.dismiss();
         try {
           await dir.delete(recursive: true);
@@ -138,7 +224,9 @@ Future<bool> _saveHighQuality({
       SmartDialog.showLoading(msg: '正在保存到相册...');
       final save = await SaverGallery.saveFile(
         filePath: out.path,
-        fileName: '${_baseName(bvid, title)}_${video.height ?? 0}p.mp4',
+        fileName: audioOnly
+            ? '${_baseName(bvid, title)}.m4a'
+            : '${_baseName(bvid, title)}_${video.height ?? 0}p.mp4',
         albumPath: 'PiliPlus',
         skipIfExists: false,
       );
@@ -147,7 +235,9 @@ Future<bool> _saveHighQuality({
         await dir.delete(recursive: true);
       } catch (_) {}
       if (save.isSuccess) {
-        SmartDialog.showToast('已保存高画质到相册：PiliPlus');
+        if (saveCover) await _saveCover(cover, bvid, title);
+        await DownloadNotification.done('已保存到相册');
+        SmartDialog.showToast('已保存到相册：PiliPlus');
         return true;
       }
       SmartDialog.showToast('保存失败：${save.errorMessage}');
@@ -193,6 +283,7 @@ Future<void> _saveMp4Direct({
       }
       SmartDialog.dismiss();
       SmartDialog.showLoading(msg: '正在下载视频...');
+      await DownloadNotification.progress(0, '准备下载...');
       final dir = await Directory.systemTemp.createTemp('pili_save_');
       final file = File('${dir.path}/video.mp4');
       final headers = {
@@ -203,6 +294,14 @@ Future<void> _saveMp4Direct({
         await Request.dio.download(
           parts.first.url!,
           file.path,
+          onReceiveProgress: (received, total) {
+            if (total > 0) {
+              DownloadNotification.progress(
+                (received * 100 / total).round(),
+                '下载视频中...',
+              );
+            }
+          },
           options: Options(
             headers: headers,
             receiveTimeout: const Duration(minutes: 30),
@@ -216,6 +315,15 @@ Future<void> _saveMp4Direct({
             await Request.dio.download(
               parts[i].url!,
               partFile.path,
+              onReceiveProgress: (received, total) {
+                if (total > 0) {
+                  final part = (received / total).clamp(0.0, 1.0);
+                  DownloadNotification.progress(
+                    ((i + part) * 100 / parts.length).round(),
+                    '下载视频中...',
+                  );
+                }
+              },
               options: Options(
                 headers: headers,
                 receiveTimeout: const Duration(minutes: 30),
@@ -254,6 +362,7 @@ Future<void> _saveMp4Direct({
       );
       SmartDialog.dismiss();
       if (save.isSuccess) {
+        await DownloadNotification.done('已保存到相册');
         SmartDialog.showToast('已保存到相册：PiliPlus');
       } else {
         SmartDialog.showToast('保存失败：${save.errorMessage}');
@@ -266,6 +375,7 @@ Future<void> _saveMp4Direct({
       SmartDialog.showToast('获取视频地址失败：${res.toString()}');
     }
   } catch (e) {
+    await DownloadNotification.cancel();
     SmartDialog.dismiss();
     SmartDialog.showToast('保存失败：$e');
   }
