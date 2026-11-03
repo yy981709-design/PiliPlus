@@ -21,6 +21,7 @@ import 'package:PiliPlus/models/common/super_resolution_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
+import 'package:PiliPlus/models/common/video/save_file_name.dart';
 import 'package:PiliPlus/models/common/video/save_quality.dart';
 import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
@@ -1069,6 +1070,11 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.setSystemBrightness, defaultValue: false);
 
   static String? get downloadPath => _setting.get(SettingBoxKey.downloadPath);
+
+  static SaveFileNameStyle get saveFileNameStyle => SaveFileNameStyle.values[_setting.get(
+    SettingBoxKey.saveFileNameStyle,
+    defaultValue: SaveFileNameStyle.titleBvid.index,
+  )];
 
   static SaveVideoQuality get saveVideoQuality => SaveVideoQuality.values[_setting.get(
     SettingBoxKey.saveVideoQuality,

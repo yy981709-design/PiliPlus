@@ -161,6 +161,7 @@ abstract final class SettingBoxKey {
       setSystemBrightness = 'setSystemBrightness',
       downloadPath = 'downloadPath',
       saveVideoQuality = 'saveVideoQuality',
+      saveFileNameStyle = 'saveFileNameStyle',
       imageSavePath = 'imageSavePath',
       followOrderType = 'followOrderType',
       enableImgMenu = 'enableImgMenu',

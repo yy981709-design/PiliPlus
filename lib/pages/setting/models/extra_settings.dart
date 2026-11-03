@@ -11,6 +11,7 @@ import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart'
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
+import 'package:PiliPlus/models/common/video/save_file_name.dart';
 import 'package:PiliPlus/models/common/video/save_quality.dart';
 import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
@@ -81,6 +82,15 @@ List<SettingsModel> get extraSettings => [
     items: SkipType.values,
     onSelected: (value, setState) => GStorage.setting
         .put(SettingBoxKey.pgcSkipType, value.index)
+        .whenComplete(setState),
+  ),
+  PopupModel<SaveFileNameStyle>(
+    title: '保存文件名',
+    leading: const Icon(Icons.drive_file_rename_outline),
+    value: () => Pref.saveFileNameStyle,
+    items: SaveFileNameStyle.values,
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.saveFileNameStyle, value.index)
         .whenComplete(setState),
   ),
   PopupModel<SaveVideoQuality>(
