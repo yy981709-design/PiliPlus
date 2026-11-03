@@ -41,6 +41,8 @@ abstract final class DailyExpHttp {
         if (aid != null) 'aid': aid,
         'csrf': Accounts.main.csrf,
         'source': 'web_normal',
+        'share_channel': 'COPY',
+        'share_origin': 'web_normal',
         'eab_x': 2,
         'ramval': 0,
         'ga': 1,

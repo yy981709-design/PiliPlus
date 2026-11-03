@@ -317,6 +317,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   int? _shareCount;
   int? _viewCount;
   int? _coinCount;
+  bool _coinGiven = false;
   bool _likeLoading = false;
   bool _playing = true;
   String? _avatar;
@@ -638,12 +639,12 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       SmartDialog.showToast('请先登录');
       return;
     }
-    if ((_coinCount ?? 0) > 0) {
+    if (_coinGiven) {
       SmartDialog.showToast('已经投过币了');
       return;
     }
     PayCoinsPage.toPayCoinsPage(
-      hasCoin: (_coinCount ?? 0) > 0,
+      hasCoin: _coinGiven,
       hasCopyright: true,
       onPayCoin: (coin, coinWithLike) async {
         final res = await VideoHttp.coinVideo(
@@ -653,7 +654,10 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
         );
         if (res.isSuccess) {
           if (mounted) {
-            setState(() => _coinCount = (_coinCount ?? 0) + coin);
+            setState(() {
+              _coinGiven = true;
+              _coinCount = (_coinCount ?? 0) + coin;
+            });
           }
           SmartDialog.showToast('投币成功');
         } else {
@@ -2336,9 +2340,8 @@ Future<String?> _resolveVerticalMedia(_VerticalItem item) async {
           ? VideoUtils.getCdnUrl(audios.first.playUrls, isAudio: true)
           : null;
       if (audio != null) {
-        final duration = dash?.duration ?? response.timeLength ?? 0;
-        return 'edl://!no_chapters;%$duration%$video;'
-            '!new_stream;!no_chapters;%$duration%$audio';
+        return 'edl://!no_chapters;%${video.length}%$video;'
+            '!new_stream;!no_chapters;%${audio.length}%$audio';
       }
       return video;
     }

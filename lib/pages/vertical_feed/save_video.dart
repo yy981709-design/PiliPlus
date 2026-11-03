@@ -66,11 +66,10 @@ Future<bool> _saveHighQuality({
       final audioUrl = audio == null
           ? null
           : VideoUtils.getCdnUrl(audio.playUrls, isAudio: true);
-      final duration = dash?.duration ?? response.timeLength ?? 0;
       final source = audioUrl == null
           ? videoUrl
-          : 'edl://!no_chapters;%$duration%$videoUrl;'
-                '!new_stream;!no_chapters;%$duration%$audioUrl';
+          : 'edl://!no_chapters;%${videoUrl.length}%$videoUrl;'
+                '!new_stream;!no_chapters;%${audioUrl.length}%$audioUrl';
 
       final dir = await Directory.systemTemp.createTemp('pili_save_hq_');
       final out = File('${dir.path}/video.mp4');

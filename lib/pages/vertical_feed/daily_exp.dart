@@ -88,7 +88,7 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
             done = response.share == true;
           }
           messages.add(
-            done ? '分享任务完成' : '分享接口成功，但经验状态未更新，可能需要在 App 内实际分享',
+            done ? '分享任务完成' : 'B站分享接口成功，但经验没有增加，这次分享未计入任务',
           );
         }
       }
