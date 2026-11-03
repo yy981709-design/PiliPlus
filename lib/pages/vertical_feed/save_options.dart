@@ -2,16 +2,39 @@ import 'package:material_ui/material_ui.dart';
 
 enum SaveMediaType { video, audio }
 
+enum SaveAudioFormat {
+  copy('原音质'),
+  m4a('M4A'),
+  mp3('MP3');
+
+  const SaveAudioFormat(this.label);
+  final String label;
+}
+
+enum AudioEffect {
+  none('无效果'),
+  battle('战损'),
+  telephone('电话音'),
+  vinyl('留声机');
+
+  const AudioEffect(this.label);
+  final String label;
+}
+
 class SaveOptions {
   const SaveOptions({
     required this.mediaType,
     required this.qn,
     required this.saveCover,
+    this.audioFormat = SaveAudioFormat.copy,
+    this.effect = AudioEffect.none,
   });
 
   final SaveMediaType mediaType;
   final int qn;
   final bool saveCover;
+  final SaveAudioFormat audioFormat;
+  final AudioEffect effect;
 }
 
 Future<SaveOptions?> showSaveOptions(BuildContext context) {
@@ -37,6 +60,8 @@ class _SaveOptionsSheetState extends State<_SaveOptionsSheet> {
   SaveMediaType _type = SaveMediaType.video;
   int _qn = 120;
   bool _saveCover = false;
+  SaveAudioFormat _audioFormat = SaveAudioFormat.copy;
+  AudioEffect _effect = AudioEffect.none;
 
   static const _qualities = [
     (qn: 120, label: '最高画质'),
@@ -97,6 +122,44 @@ class _SaveOptionsSheetState extends State<_SaveOptionsSheet> {
                   ),
               ],
             ),
+            if (_type == SaveMediaType.audio) ...[
+              const SizedBox(height: 18),
+              const Text(
+                '音频格式',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final item in SaveAudioFormat.values)
+                    _chip(
+                      item.label,
+                      _audioFormat == item,
+                      () => setState(() => _audioFormat = item),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 18),
+            const Text(
+              '音频效果',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final item in AudioEffect.values)
+                  _chip(
+                    item.label,
+                    _effect == item,
+                    () => setState(() => _effect = item),
+                  ),
+              ],
+            ),
             const SizedBox(height: 10),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -123,6 +186,8 @@ class _SaveOptionsSheetState extends State<_SaveOptionsSheet> {
                     mediaType: _type,
                     qn: _qn,
                     saveCover: _saveCover,
+                    audioFormat: _audioFormat,
+                    effect: _effect,
                   ),
                 ),
                 child: const Text('开始下载'),

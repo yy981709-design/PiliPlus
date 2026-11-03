@@ -42,6 +42,8 @@ Future<void> saveVideoToGallery({
       audioOnly: true,
       cover: cover,
       saveCover: opt.saveCover,
+      audioFormat: opt.audioFormat,
+      effect: opt.effect,
     );
     return;
   }
@@ -57,6 +59,8 @@ Future<void> saveVideoToGallery({
     audioOnly: opt.mediaType == SaveMediaType.audio,
     cover: cover,
     saveCover: opt.saveCover,
+    audioFormat: opt.audioFormat,
+    effect: opt.effect,
   );
   if (!saved) {
     if (quality == SaveVideoQuality.auto) {
@@ -104,6 +108,26 @@ String _baseName(String bvid, String title) {
   return name.length > 120 ? name.substring(0, 120) : name;
 }
 
+String _effectFilter(AudioEffect effect) {
+  return switch (effect) {
+    AudioEffect.none => '',
+    AudioEffect.battle =>
+      'acrusher=bits=5:mix=0.55,lowpass=f=3200,highpass=f=180,volume=1.25',
+    AudioEffect.telephone => 'highpass=f=300,lowpass=f=3400',
+    AudioEffect.vinyl =>
+      'aecho=0.8:0.7:40:0.35,highpass=f=100,lowpass=f=8000',
+  };
+}
+
+String _audioCodec(SaveAudioFormat format, AudioEffect effect) {
+  if (effect != AudioEffect.none) return '-c:a aac -b:a 192k';
+  return switch (format) {
+    SaveAudioFormat.copy => '-c:a copy',
+    SaveAudioFormat.m4a => '-c:a aac -b:a 192k',
+    SaveAudioFormat.mp3 => '-c:a libmp3lame -q:a 2',
+  };
+}
+
 Future<bool> _saveHighQuality({
   required String bvid,
   required int cid,
@@ -112,6 +136,8 @@ Future<bool> _saveHighQuality({
   required bool audioOnly,
   required String? cover,
   required bool saveCover,
+  required SaveAudioFormat audioFormat,
+  required AudioEffect effect,
 }) async {
   SmartDialog.showLoading(msg: '正在获取高画质地址...');
   try {
@@ -150,8 +176,6 @@ Future<bool> _saveHighQuality({
       final dir = await Directory.systemTemp.createTemp('pili_save_hq_');
       final videoFile = File('${dir.path}/video.m4s');
       final audioFile = File('${dir.path}/audio.m4s');
-      final outName = audioOnly ? 'audio.m4a' : 'video.mp4';
-      final out = File('${dir.path}/$outName');
       SmartDialog.dismiss();
       SmartDialog.showLoading(msg: '正在下载高画质视频...');
       await DownloadNotification.progress(0, '准备下载...');
@@ -198,11 +222,25 @@ Future<bool> _saveHighQuality({
       SmartDialog.dismiss();
       SmartDialog.showLoading(msg: '正在用 ffmpeg 合并...');
       await DownloadNotification.progress(95, '正在合并...');
+      final audioExt = audioOnly
+          ? (audioFormat == SaveAudioFormat.mp3 ? 'mp3' : 'm4a')
+          : 'mp4';
+      final outName = audioOnly ? 'audio.$audioExt' : 'video.mp4';
+      final out = File('${dir.path}/$outName');
+      final effectFilter = _effectFilter(effect);
+      final audioCodec = _audioCodec(audioFormat, effect);
       final command = audioOnly
-          ? '-y -i "${audioFile.path}" -vn -c:a copy -movflags +faststart "${out.path}"'
+          ? '-y -i "${audioFile.path}" -vn $audioCodec '
+                '${effectFilter.isEmpty ? '' : '-af "$effectFilter" '}'
+                '${audioFormat == SaveAudioFormat.mp3 ? '' : '-movflags +faststart '}'
+                '"${out.path}"'
           : audioUrl == null
           ? '-y -i "${videoFile.path}" -c copy -movflags +faststart "${out.path}"'
-          : '-y -i "${videoFile.path}" -i "${audioFile.path}" -map 0:v:0 -map 1:a:0? -c copy -movflags +faststart "${out.path}"';
+          : '-y -i "${videoFile.path}" -i "${audioFile.path}" '
+                '-map 0:v:0 -map 1:a:0? '
+                '${effect == AudioEffect.none ? '-c copy' : '-c:v copy $audioCodec'} '
+                '${effectFilter.isEmpty ? '' : '-af "$effectFilter" '}'
+                '-movflags +faststart "${out.path}"';
       final session = await FFmpegKit.execute(command);
       final returnCode = await session.getReturnCode();
       final ok = ReturnCode.isSuccess(returnCode) &&
@@ -225,7 +263,7 @@ Future<bool> _saveHighQuality({
       final save = await SaverGallery.saveFile(
         filePath: out.path,
         fileName: audioOnly
-            ? '${_baseName(bvid, title)}.m4a'
+            ? '${_baseName(bvid, title)}.${audioFormat == SaveAudioFormat.mp3 ? 'mp3' : 'm4a'}'
             : '${_baseName(bvid, title)}_${video.height ?? 0}p.mp4',
         albumPath: 'PiliPlus',
         skipIfExists: false,
