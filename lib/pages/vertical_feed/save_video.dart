@@ -131,9 +131,10 @@ Future<void> _saveMp4Direct({
         SmartDialog.showToast('该视频没有 MP4 直链，请把保存画质切换为「高画质」');
         return;
       }
-      final first = durl.first;
-      final url = first.url;
-      if (url == null || url.isEmpty) {
+      final parts = durl
+          .where((item) => item.url?.isNotEmpty ?? false)
+          .toList();
+      if (parts.isEmpty) {
         SmartDialog.dismiss();
         SmartDialog.showToast('没有可用的下载地址');
         return;
@@ -142,16 +143,55 @@ Future<void> _saveMp4Direct({
       SmartDialog.showLoading(msg: '正在下载视频...');
       final dir = await Directory.systemTemp.createTemp('pili_save_');
       final file = File('${dir.path}/video.mp4');
-      await Request.dio.download(
-        url,
-        file.path,
-        options: Options(
-          headers: {
-            'referer': 'https://www.bilibili.com/video/$bvid',
-            'user-agent': BrowserUa.pc,
-          },
-        ),
+      final headers = {
+        'referer': 'https://www.bilibili.com/video/$bvid',
+        'user-agent': BrowserUa.pc,
+      };
+      if (parts.length == 1) {
+        await Request.dio.download(
+          parts.first.url!,
+          file.path,
+          options: Options(
+            headers: headers,
+            receiveTimeout: const Duration(minutes: 30),
+          ),
+        );
+      } else {
+        final sink = file.openWrite();
+        try {
+          for (var i = 0; i < parts.length; i++) {
+            final partFile = File('${dir.path}/part_$i.mp4');
+            await Request.dio.download(
+              parts[i].url!,
+              partFile.path,
+              options: Options(
+                headers: headers,
+                receiveTimeout: const Duration(minutes: 30),
+              ),
+            );
+            await sink.addStream(partFile.openRead());
+            await partFile.delete();
+          }
+        } finally {
+          await sink.close();
+        }
+      }
+      final expected = parts.fold<int>(
+        0,
+        (sum, item) => sum + (item.size ?? 0),
       );
+      final actual = await file.length();
+      if (expected > 0 && actual < expected * 0.9) {
+        SmartDialog.dismiss();
+        try {
+          await dir.delete(recursive: true);
+        } catch (_) {}
+        SmartDialog.showToast(
+          '下载不完整：${(actual / 1024 / 1024).toStringAsFixed(1)}MB / '
+          '${(expected / 1024 / 1024).toStringAsFixed(1)}MB',
+        );
+        return;
+      }
       SmartDialog.dismiss();
       SmartDialog.showLoading(msg: '正在保存到相册...');
       final save = await SaverGallery.saveFile(
