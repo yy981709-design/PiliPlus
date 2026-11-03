@@ -2014,6 +2014,57 @@ class _VerticalCommentsState extends State<_VerticalComments> {
     );
   }
 
+  Future<void> _likeComment(ReplyItemModel reply) async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    final rpid = reply.rpid;
+    if (rpid == null) return;
+    final liked = reply.action == 1;
+    final res = await ReplyHttp.likeReply(
+      type: reply.type ?? 1,
+      oid: reply.oid ?? widget.aid,
+      rpid: rpid,
+      action: liked ? 0 : 1,
+    );
+    if (res.isSuccess) {
+      setState(() {
+        reply.action = liked ? 0 : 1;
+        reply.like = (reply.like ?? 0) + (liked ? -1 : 1);
+        if (reply.like! < 0) reply.like = 0;
+      });
+    } else {
+      SmartDialog.showToast('点赞失败：${res.toString()}');
+    }
+  }
+
+  Future<void> _dislikeComment(ReplyItemModel reply) async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+    final rpid = reply.rpid;
+    if (rpid == null) return;
+    final disliked = reply.action == 2;
+    final res = await ReplyHttp.hateReply(
+      type: reply.type ?? 1,
+      oid: reply.oid ?? widget.aid,
+      rpid: rpid,
+      action: disliked ? 0 : 1,
+    );
+    if (res.isSuccess) {
+      setState(() {
+        reply.action = disliked ? 0 : 2;
+        if (!disliked && reply.like != null && reply.like! > 0) {
+          reply.like = reply.like! - 1;
+        }
+      });
+    } else {
+      SmartDialog.showToast('点踩失败：${res.toString()}');
+    }
+  }
+
   Color _levelColor(int level) {
     return switch (level) {
       0 => const Color(0xFFC0C0C0),
@@ -2213,16 +2264,67 @@ class _VerticalCommentsState extends State<_VerticalComments> {
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    if ((reply.like ?? 0) > 0) ...[
-                                      Text(
-                                        '${reply.like} 赞',
-                                        style: const TextStyle(
-                                          color: Colors.white38,
-                                          fontSize: 10,
+                                    InkWell(
+                                      onTap: () => _likeComment(reply),
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 10,
+                                          top: 2,
+                                          bottom: 2,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              reply.action == 1
+                                                  ? Icons.thumb_up_alt
+                                                  : Icons.thumb_up_alt_outlined,
+                                              color: reply.action == 1
+                                                  ? Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                  : Colors.white38,
+                                              size: 15,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${reply.like ?? 0}',
+                                              style: TextStyle(
+                                                color: reply.action == 1
+                                                    ? Theme.of(context)
+                                                          .colorScheme
+                                                          .primary
+                                                    : Colors.white38,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                    ],
+                                    ),
+                                    InkWell(
+                                      onTap: () => _dislikeComment(reply),
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 10,
+                                          top: 2,
+                                          bottom: 2,
+                                        ),
+                                        child: Icon(
+                                          reply.action == 2
+                                              ? Icons.thumb_down_alt
+                                              : Icons.thumb_down_alt_outlined,
+                                          color: reply.action == 2
+                                              ? Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                              : Colors.white38,
+                                          size: 15,
+                                        ),
+                                      ),
+                                    ),
                                     if (reply.ctime != null)
                                       Text(
                                         DateFormatUtils.dateFormat(
