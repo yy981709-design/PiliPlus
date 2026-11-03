@@ -11,7 +11,7 @@ abstract final class DownloadNotification {
     try {
       const android = AndroidInitializationSettings('@mipmap/ic_launcher');
       await _plugin.initialize(
-        const InitializationSettings(android: android),
+        settings: const InitializationSettings(android: android),
       );
       await _plugin
           .resolvePlatformSpecificImplementation<
@@ -29,10 +29,10 @@ abstract final class DownloadNotification {
     if (!_ready) return;
     try {
       await _plugin.show(
-        _id,
-        '保存视频',
-        text,
-        NotificationDetails(
+        id: _id,
+        title: '保存视频',
+        body: text,
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             'video_download',
             '视频下载',
@@ -56,10 +56,10 @@ abstract final class DownloadNotification {
     if (!_ready) return;
     try {
       await _plugin.show(
-        _id,
-        '保存视频',
-        text,
-        const NotificationDetails(
+        id: _id,
+        title: '保存视频',
+        body: text,
+        notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             'video_download',
             '视频下载',
@@ -71,14 +71,14 @@ abstract final class DownloadNotification {
         ),
       );
       await Future<void>.delayed(const Duration(seconds: 3));
-      await _plugin.cancel(_id);
+      await _plugin.cancel(id: _id);
     } catch (_) {}
   }
 
   static Future<void> cancel() async {
     if (!_ready) return;
     try {
-      await _plugin.cancel(_id);
+      await _plugin.cancel(id: _id);
     } catch (_) {}
   }
 }

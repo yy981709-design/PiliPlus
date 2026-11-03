@@ -28,7 +28,7 @@ Future<void> saveVideoToGallery({
   final opt = options ??
       const SaveOptions(
         mediaType: SaveMediaType.video,
-        qn: qn,
+        qn: 120,
         saveCover: false,
       );
   await DownloadNotification.init();
