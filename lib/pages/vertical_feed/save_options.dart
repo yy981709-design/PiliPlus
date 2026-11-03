@@ -1,3 +1,4 @@
+import 'package:PiliPlus/models/common/video/save_quality.dart';
 import 'package:material_ui/material_ui.dart';
 
 enum SaveMediaType { video, audio }
@@ -26,6 +27,7 @@ class SaveOptions {
     required this.mediaType,
     required this.qn,
     required this.saveCover,
+    this.mode = SaveVideoQuality.high,
     this.audioFormat = SaveAudioFormat.copy,
     this.effect = AudioEffect.none,
   });
@@ -33,6 +35,7 @@ class SaveOptions {
   final SaveMediaType mediaType;
   final int qn;
   final bool saveCover;
+  final SaveVideoQuality mode;
   final SaveAudioFormat audioFormat;
   final AudioEffect effect;
 }
@@ -60,6 +63,7 @@ class _SaveOptionsSheetState extends State<_SaveOptionsSheet> {
   SaveMediaType _type = SaveMediaType.video;
   int _qn = 120;
   bool _saveCover = false;
+  SaveVideoQuality _mode = SaveVideoQuality.high;
   SaveAudioFormat _audioFormat = SaveAudioFormat.copy;
   AudioEffect _effect = AudioEffect.none;
 
@@ -102,6 +106,24 @@ class _SaveOptionsSheetState extends State<_SaveOptionsSheet> {
                 _typeButton('视频', SaveMediaType.video),
                 const SizedBox(width: 8),
                 _typeButton('音频', SaveMediaType.audio),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              '下载方式',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final item in SaveVideoQuality.values)
+                  _chip(
+                    item.label,
+                    _mode == item,
+                    () => setState(() => _mode = item),
+                  ),
               ],
             ),
             const SizedBox(height: 18),
@@ -186,6 +208,7 @@ class _SaveOptionsSheetState extends State<_SaveOptionsSheet> {
                     mediaType: _type,
                     qn: _qn,
                     saveCover: _saveCover,
+                    mode: _mode,
                     audioFormat: _audioFormat,
                     effect: _effect,
                   ),

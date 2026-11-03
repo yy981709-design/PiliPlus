@@ -27,6 +27,8 @@ import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/page.dart';
+import 'package:PiliPlus/pages/vertical_feed/save_options.dart';
+import 'package:PiliPlus/pages/vertical_feed/save_video.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/season.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/bili_colors.dart';
@@ -532,6 +534,22 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             onTap: () => videoDetailCtr.onDownload(context),
             text: '缓存',
             semanticsLabel: '缓存',
+          ),
+          ActionItem(
+            icon: const Icon(Icons.save_alt),
+            onTap: () async {
+              final options = await showSaveOptions(context);
+              if (options == null) return;
+              await saveVideoToGallery(
+                bvid: videoDetailCtr.bvid,
+                cid: videoDetailCtr.cid.value,
+                title: videoDetailCtr.watchTitle,
+                cover: videoDetailCtr.cover.value,
+                options: options,
+              );
+            },
+            text: '保存',
+            semanticsLabel: '保存到相册',
           ),
           Obx(
             () => ActionItem(

@@ -32,7 +32,6 @@ Future<void> saveVideoToGallery({
         saveCover: false,
       );
   await DownloadNotification.init();
-  final quality = Pref.saveVideoQuality;
   if (opt.mediaType == SaveMediaType.audio) {
     await _saveHighQuality(
       bvid: bvid,
@@ -47,7 +46,7 @@ Future<void> saveVideoToGallery({
     );
     return;
   }
-  if (quality == SaveVideoQuality.low) {
+  if (opt.mode == SaveVideoQuality.low) {
     await _saveMp4Direct(bvid: bvid, cid: cid, title: title);
     return;
   }
@@ -63,7 +62,7 @@ Future<void> saveVideoToGallery({
     effect: opt.effect,
   );
   if (!saved) {
-    if (quality == SaveVideoQuality.auto) {
+    if (opt.mode == SaveVideoQuality.auto) {
       await _saveMp4Direct(bvid: bvid, cid: cid, title: title);
     } else {
       SmartDialog.showToast('高画质保存失败，可在设置中切换为省空间');

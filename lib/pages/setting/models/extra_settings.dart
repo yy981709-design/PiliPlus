@@ -93,15 +93,6 @@ List<SettingsModel> get extraSettings => [
         .put(SettingBoxKey.saveFileNameStyle, value.index)
         .whenComplete(setState),
   ),
-  PopupModel<SaveVideoQuality>(
-    title: '保存视频画质',
-    leading: const Icon(Icons.high_quality_outlined),
-    value: () => Pref.saveVideoQuality,
-    items: SaveVideoQuality.values,
-    onSelected: (value, setState) => GStorage.setting
-        .put(SettingBoxKey.saveVideoQuality, value.index)
-        .whenComplete(setState),
-  ),
   const SwitchModel(
     title: '禁用 SSL 证书验证',
     subtitle: '谨慎开启，禁用容易受到中间人攻击',
