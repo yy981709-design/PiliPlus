@@ -2336,8 +2336,9 @@ Future<String?> _resolveVerticalMedia(_VerticalItem item) async {
           ? VideoUtils.getCdnUrl(audios.first.playUrls, isAudio: true)
           : null;
       if (audio != null) {
-        return 'edl://!no_chapters;%${video.length}%$video;'
-            '!new_stream;!no_chapters;%${audio.length}%$audio';
+        final duration = dash?.duration ?? response.timeLength ?? 0;
+        return 'edl://!no_chapters;%$duration%$video;'
+            '!new_stream;!no_chapters;%$duration%$audio';
       }
       return video;
     }
