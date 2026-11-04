@@ -3,6 +3,7 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -75,22 +76,19 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
       if (video == null) {
         messages.add('分享失败：没有可用视频');
       } else {
-        final res = await DailyExpHttp.shareVideo(
-          bvid: video.$1,
-          aid: video.$2,
+        await ShareUtils.shareText(
+          'https://www.bilibili.com/video/${video.$1}',
         );
-        if (!res.isSuccess) {
-          messages.add('分享失败：${res.toString()}');
-        } else {
-          final check = await DailyExpHttp.reward();
-          var done = false;
-          if (check case Success(:final response)) {
-            done = response.share == true;
-          }
-          messages.add(
-            done ? '分享任务完成' : 'B站分享接口成功，但经验没有增加，这次分享未计入任务',
-          );
+        final check = await DailyExpHttp.reward();
+        var done = false;
+        if (check case Success(:final response)) {
+          done = response.share == true;
         }
+        messages.add(
+          done
+              ? '分享任务完成'
+              : '已打开分享面板，请选择应用分享；B站经验任务仍未计入',
+        );
       }
     }
     if (_enableCoin && (_status?.coins ?? 0) < 50) {
