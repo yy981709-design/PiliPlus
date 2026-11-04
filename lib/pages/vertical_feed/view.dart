@@ -156,7 +156,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
   }
 
   void _preloadAround() {
-    for (var i = _index; i <= _index + 2 && i < _items.length; i++) {
+    for (var i = _index; i <= _index + 4 && i < _items.length; i++) {
       final item = _items[i];
       final key = '${item.bvid}_${item.cid}';
       _mediaFutures.putIfAbsent(key, () => _resolveVerticalMedia(item));
@@ -169,7 +169,7 @@ class _VerticalFeedPageState extends State<VerticalFeedPage> {
       return;
     }
     _pageController.nextPage(
-      duration: const Duration(milliseconds: 260),
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
     );
   }
@@ -1306,13 +1306,31 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 builder: (context, snapshot) {
                   final duration = _player!.state.duration.inMilliseconds;
                   final position = (snapshot.data ?? Duration.zero).inMilliseconds;
-                  return LinearProgressIndicator(
-                    value: duration > 0
-                        ? (position / duration).clamp(0.0, 1.0).toDouble()
-                        : 0,
-                    minHeight: 2,
-                    backgroundColor: Colors.white24,
-                    color: Colors.white,
+                  return SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 2,
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 5,
+                      ),
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 12,
+                      ),
+                      activeTrackColor: Colors.white,
+                      inactiveTrackColor: Colors.white30,
+                      thumbColor: Colors.white,
+                      overlayColor: Colors.white24,
+                    ),
+                    child: Slider(
+                      value: duration > 0
+                          ? position.clamp(0, duration).toDouble()
+                          : 0,
+                      max: duration > 0 ? duration.toDouble() : 1,
+                      onChanged: duration > 0
+                          ? (value) => _player!.seek(
+                              Duration(milliseconds: value.round()),
+                            )
+                          : null,
+                    ),
                   );
                 },
               ),

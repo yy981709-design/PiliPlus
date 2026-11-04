@@ -565,11 +565,6 @@ abstract final class PageUtils {
       secondRpIdKey: ?secondRpId,
       ...?extraArguments,
     };
-    if ((dimension?.isVertical ?? isVertical) &&
-        Pref.verticalFeed &&
-        extraArguments?['noVerticalFeed'] != true) {
-      return PageUtils.toDupNamed('/verticalFeed', arguments: arguments);
-    }
     return PageUtils.toDupNamed('/videoV', arguments: arguments, off: off);
   }
 
