@@ -1524,17 +1524,18 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _togglePlay,
-              child: Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  color: const Color(0x5538BDF8),
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  size: 58,
-                  color: Color(0xCC168FE5),
+              child: AnimatedScale(
+                scale: _playing ? 0.86 : 1,
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutBack,
+                child: Opacity(
+                  opacity: 0.72,
+                  child: Image.asset(
+                    'assets/images/pause_play.png',
+                    width: 112,
+                    height: 108,
+                    filterQuality: FilterQuality.high,
+                  ),
                 ),
               ),
             ),
