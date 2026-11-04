@@ -25,6 +25,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models_new/reply/content.dart';
+import 'package:PiliPlus/models_new/video/video_shot/data.dart';
 import 'package:PiliPlus/models_new/reply/data.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -309,6 +310,9 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   Timer? _landscapeTimer;
   bool _uiHidden = false;
   bool _speedBoosting = false;
+  bool _seeking = false;
+  int _previewSeconds = 0;
+  VideoShotData? _videoShot;
   final GlobalKey<_DanmakuLayerState> _danmakuKey = GlobalKey();
   bool _danmakuOn = true;
   bool _autoNext = true;
@@ -1300,7 +1304,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
             Positioned(
               left: 12,
               right: 12,
-              bottom: 50,
+              bottom: 40,
+              height: 20,
               child: StreamBuilder<Duration>(
                 stream: _player!.stream.position,
                 builder: (context, snapshot) {
@@ -1310,29 +1315,36 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     data: SliderTheme.of(context).copyWith(
                       trackHeight: 2,
                       thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 5,
+                        enabledThumbRadius: 0,
                       ),
                       overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 12,
+                        overlayRadius: 0,
                       ),
                       activeTrackColor: Colors.white,
-                      inactiveTrackColor: Colors.white30,
+                      inactiveTrackColor: Colors.white24,
                       thumbColor: Colors.white,
-                      overlayColor: Colors.white24,
+                      overlayColor: Colors.transparent,
                     ),
                     child: Slider(
                       value: duration > 0
                           ? position.clamp(0, duration).toDouble()
                           : 0,
                       max: duration > 0 ? duration.toDouble() : 1,
-                      onChanged: duration > 0
-                          ? (value) => _player!.seek(
-                              Duration(milliseconds: value.round()),
-                            )
-                          : null,
+                      onChangeStart: duration > 0 ? _seekStart : null,
+                      onChanged: duration > 0 ? _seekUpdate : null,
+                      onChangeEnd: duration > 0 ? _seekEnd : null,
                     ),
                   );
                 },
+              ),
+            ),
+          if (_seeking)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 62,
+              child: IgnorePointer(
+                child: Center(child: _buildSeekPreview()),
               ),
             ),
           if (!_uiHidden && !_landscape)
@@ -1544,6 +1556,97 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
     }
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadVideoShot() async {
+    if (_videoShot != null) return;
+    final res = await VideoHttp.videoshot(
+      bvid: widget.item.bvid,
+      cid: widget.item.cid,
+    );
+    if (res case Success(:final response)) {
+      if (mounted) setState(() => _videoShot = response);
+    }
+  }
+
+  void _seekStart(double value) {
+    setState(() {
+      _seeking = true;
+      _previewSeconds = (value / 1000).round();
+    });
+    _loadVideoShot();
+  }
+
+  void _seekUpdate(double value) {
+    setState(() => _previewSeconds = (value / 1000).round());
+  }
+
+  void _seekEnd(double value) {
+    _player?.seek(Duration(milliseconds: value.round()));
+    setState(() => _seeking = false);
+  }
+
+  Widget _buildSeekPreview() {
+    final shot = _videoShot;
+    Widget? preview;
+    if (shot != null && shot.image.isNotEmpty) {
+      final index = shot.index.isEmpty
+          ? 0
+          : shot.index.where((e) => e <= _previewSeconds).length - 1;
+      final safe = index.clamp(0, shot.index.isEmpty
+          ? shot.totalPerImage - 1
+          : shot.totalPerImage - 1);
+      final page = (safe ~/ shot.totalPerImage).clamp(
+        0,
+        shot.image.length - 1,
+      );
+      final frame = safe % shot.totalPerImage;
+      final x = frame % shot.imgXLen;
+      final y = frame ~/ shot.imgXLen;
+      final width = 160.0;
+      final height = shot.imgXSize == 0
+          ? 90.0
+          : width * shot.imgYSize / shot.imgXSize;
+      preview = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topLeft,
+              maxWidth: width * shot.imgXLen,
+              maxHeight: height * shot.imgYLen,
+              child: Transform.translate(
+                offset: Offset(-x * width, -y * height),
+                child: Image.network(
+                  shot.image[page],
+                  width: width * shot.imgXLen,
+                  height: height * shot.imgYLen,
+                  fit: BoxFit.fill,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (preview != null) preview,
+        const SizedBox(height: 4),
+        Text(
+          _biliTime(Duration(seconds: _previewSeconds)),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildLandscapeControls(_VerticalItem item) {
