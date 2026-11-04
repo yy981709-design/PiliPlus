@@ -906,6 +906,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 showDailyExpSheet(
                   bvid: widget.item.bvid,
                   aid: widget.item.aid,
+                  title: widget.item.title,
+                  author: widget.item.author,
                 );
               },
             ),

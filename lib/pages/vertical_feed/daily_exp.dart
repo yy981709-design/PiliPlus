@@ -12,10 +12,18 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class DailyExpSheet extends StatefulWidget {
-  const DailyExpSheet({super.key, this.bvid, this.aid});
+  const DailyExpSheet({
+    super.key,
+    this.bvid,
+    this.aid,
+    this.title,
+    this.author,
+  });
 
   final String? bvid;
   final int? aid;
+  final String? title;
+  final String? author;
 
   @override
   State<DailyExpSheet> createState() => _DailyExpSheetState();
@@ -76,9 +84,12 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
       if (video == null) {
         messages.add('分享失败：没有可用视频');
       } else {
-        await ShareUtils.shareText(
+        final shareText = [
+          if (widget.title?.isNotEmpty == true) widget.title!,
+          if (widget.author?.isNotEmpty == true) 'UP主: ${widget.author}',
           'https://www.bilibili.com/video/${video.$1}',
-        );
+        ].join(' - ');
+        await ShareUtils.shareText(shareText);
         final check = await DailyExpHttp.reward();
         var done = false;
         if (check case Success(:final response)) {
@@ -288,13 +299,23 @@ class _DailyExpSheetState extends State<DailyExpSheet> {
   }
 }
 
-void showDailyExpSheet({String? bvid, int? aid}) {
+void showDailyExpSheet({
+  String? bvid,
+  int? aid,
+  String? title,
+  String? author,
+}) {
   final context = Get.context;
   if (context == null) return;
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => DailyExpSheet(bvid: bvid, aid: aid),
+    builder: (_) => DailyExpSheet(
+      bvid: bvid,
+      aid: aid,
+      title: title,
+      author: author,
+    ),
   );
 }
