@@ -1338,15 +1338,6 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 },
               ),
             ),
-          if (_seeking)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 62,
-              child: IgnorePointer(
-                child: Center(child: _buildSeekPreview()),
-              ),
-            ),
           if (!_uiHidden && !_landscape)
             Positioned(
               left: 16,
@@ -1474,6 +1465,23 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
               ],
             ),
           ),
+          if (_seeking) ...[
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 62,
+              child: IgnorePointer(
+                child: Center(child: _buildSeekPreview()),
+              ),
+            ),
+          ],
           if (_uiHidden && !_landscape)
             Positioned.fill(
               child: GestureDetector(
