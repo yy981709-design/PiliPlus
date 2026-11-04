@@ -312,6 +312,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   bool _speedBoosting = false;
   bool _seeking = false;
   int _previewSeconds = 0;
+  double? _seekValue;
   VideoShotData? _videoShot;
   final GlobalKey<_DanmakuLayerState> _danmakuKey = GlobalKey();
   bool _danmakuOn = true;
@@ -1327,7 +1328,8 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                     ),
                     child: Slider(
                       value: duration > 0
-                          ? position.clamp(0, duration).toDouble()
+                          ? (_seekValue ?? position.clamp(0, duration))
+                                .toDouble()
                           : 0,
                       max: duration > 0 ? duration.toDouble() : 1,
                       onChangeStart: duration > 0 ? _seekStart : null,
@@ -1529,7 +1531,7 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
                 duration: const Duration(milliseconds: 260),
                 curve: Curves.easeOutBack,
                 child: Opacity(
-                  opacity: 0.72,
+                  opacity: 0.5,
                   child: Image.asset(
                     'assets/images/pause_play.png',
                     width: 112,
@@ -1581,18 +1583,25 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
   void _seekStart(double value) {
     setState(() {
       _seeking = true;
+      _seekValue = value;
       _previewSeconds = (value / 1000).round();
     });
     _loadVideoShot();
   }
 
   void _seekUpdate(double value) {
-    setState(() => _previewSeconds = (value / 1000).round());
+    setState(() {
+      _seekValue = value;
+      _previewSeconds = (value / 1000).round();
+    });
   }
 
   void _seekEnd(double value) {
     _player?.seek(Duration(milliseconds: value.round()));
-    setState(() => _seeking = false);
+    setState(() {
+      _seeking = false;
+      _seekValue = null;
+    });
   }
 
   Widget _buildSeekPreview() {
