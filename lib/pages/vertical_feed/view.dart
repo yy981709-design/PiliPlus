@@ -24,11 +24,13 @@ import 'package:PiliPlus/http/msg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/models/common/image_preview_type.dart';
 import 'package:PiliPlus/models_new/reply/content.dart';
 import 'package:PiliPlus/models_new/video/video_shot/data.dart';
 import 'package:PiliPlus/models_new/reply/data.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/services/watch_stats_service.dart';
@@ -949,7 +951,10 @@ class _VerticalPlayerItemState extends State<_VerticalPlayerItem> {
       context,
       enabled: _danmakuOn,
       onToggle: (value) => setState(() => _danmakuOn = value),
-      onApply: () => _danmakuKey.currentState?.updateOptions(),
+      onApply: () {
+        _danmakuKey.currentState?.updateOptions();
+        if (mounted) setState(() {});
+      },
     );
   }
 
@@ -2082,21 +2087,36 @@ class _VerticalCommentsState extends State<_VerticalComments> {
   Widget _buildPictures(ReplyContent? content) {
     final pictures = content?.pictures;
     if (pictures == null || pictures.isEmpty) return const SizedBox.shrink();
+    final images = [
+      for (final pic in pictures)
+        SourceModel(
+          url: pic.imgSrc ?? '',
+          width: pic.imgWidth,
+          height: pic.imgHeight,
+        ),
+    ];
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Wrap(
         spacing: 6,
         runSpacing: 6,
         children: [
-          for (final pic in pictures.take(3))
-            ClipRRect(
+          for (var i = 0; i < pictures.length && i < 3; i++)
+            InkWell(
+              onTap: () => PageUtils.imageView(
+                imgList: images,
+                initialPage: i,
+              ),
               borderRadius: BorderRadius.circular(4),
-              child: Image.network(
-                pic.imgSrc ?? '',
-                width: 90,
-                height: 90,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  pictures[i].imgSrc ?? '',
+                  width: 90,
+                  height: 90,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
               ),
             ),
         ],
@@ -2679,6 +2699,7 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
   }
 
   void updateOptions() {
+    if (mounted) setState(() {});
     _controller?.updateOption(
       DanmakuOptions.get(
         notFullscreen: false,
@@ -2745,7 +2766,9 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
   Widget build(BuildContext context) {
     if (!_showScreen) return const SizedBox.shrink();
     return LayoutBuilder(
-      builder: (context, constraints) => DanmakuScreen<DanmakuExtra>(
+      builder: (context, constraints) => Opacity(
+        opacity: Pref.danmakuOpacity.clamp(0.0, 1.0),
+        child: DanmakuScreen<DanmakuExtra>(
         createdController: (controller) {
           _controller = controller;
           _lastPosition = -1;
@@ -2761,6 +2784,7 @@ class _DanmakuLayerState extends State<_DanmakuLayer> {
           speed: widget.player.state.rate,
         ),
         size: Size(constraints.maxWidth, constraints.maxHeight),
+        ),
       ),
     );
   }

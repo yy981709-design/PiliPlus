@@ -2,7 +2,9 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/models_new/reply/content.dart';
 import 'package:PiliPlus/models_new/reply/reply.dart';
+import 'package:PiliPlus/models/common/image_preview_type.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:material_ui/material_ui.dart';
@@ -242,21 +244,36 @@ class _CommentDetailPageState extends State<CommentDetailPage> {
   Widget _buildPictures(ReplyContent? content) {
     final pictures = content?.pictures;
     if (pictures == null || pictures.isEmpty) return const SizedBox.shrink();
+    final images = [
+      for (final pic in pictures)
+        SourceModel(
+          url: pic.imgSrc ?? '',
+          width: pic.imgWidth,
+          height: pic.imgHeight,
+        ),
+    ];
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Wrap(
         spacing: 6,
         runSpacing: 6,
         children: [
-          for (final pic in pictures.take(6))
-            ClipRRect(
+          for (var i = 0; i < pictures.length && i < 6; i++)
+            InkWell(
+              onTap: () => PageUtils.imageView(
+                imgList: images,
+                initialPage: i,
+              ),
               borderRadius: BorderRadius.circular(4),
-              child: Image.network(
-                pic.imgSrc ?? '',
-                width: 100,
-                height: 100,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  pictures[i].imgSrc ?? '',
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
               ),
             ),
         ],
